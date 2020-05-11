@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
   xrnls->set_port(port);
   xrnls->set_socket_no_delay(true);
   bool broadcast_to_all = false;
-  nr_participant_info *pinfo = new nr_participant_info();
+  //nr_participant_info *pinfo = new nr_participant_info();
   std::cout << "----------------------" << std::endl;
   std::cout << " Unit test nr_service " << std::endl;
   std::cout << "----------------------" << std::endl;

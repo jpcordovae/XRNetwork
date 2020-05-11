@@ -36,6 +36,12 @@ using boost::asio::ip::udp;
 
 //----------------------------------------------------------------------
 
+#ifndef BOOST_LOG_STREAM_WITH_PARAMS
+#define BOOST_LOG_STREAM_WITH_PARAMS
+#endif
+
+//----------------------------------------------------------------------
+
 #define NR_FAIL -1
 #define NR_OK    0
 

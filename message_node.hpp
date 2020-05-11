@@ -12,7 +12,10 @@ struct message_node {
     uint64_t participant_id_;
     uint64_t buffersize_;
     std::byte* buffer_;
-    message_node() : timestamp(std::chrono::high_resolution_clock::now()), buffer_(NULL), buffersize_(0), participant_id_(0)
+    message_node() : timestamp(std::chrono::high_resolution_clock::now()),
+		     buffer_(NULL),
+		     buffersize_(0),
+		     participant_id_(0)
     { }
 
     message_node(uint64_t part_id, std::byte* buffer, const size_t buffersize) : timestamp(std::chrono::high_resolution_clock::now())

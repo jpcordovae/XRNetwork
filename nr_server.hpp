@@ -6,6 +6,7 @@
 #include "participant.hpp"
 #include "room.hpp"
 #include "session.hpp"
+#include "handshake.hpp"
 
 #define DEFAULT_MAX_PARTICIPANTS 10
 
@@ -176,7 +177,8 @@ private:
 			   {
 			     if (!ec)
 			       {
-				 std::make_shared<nr_session>(std::move(socket), room_)->start();
+				 //std::make_shared<nr_session>(std::move(socket), room_)->start();
+				 std::make_shared<handshake_session>(std::move(socket), handshake_room_)->start();
 				 do_accept();
 			       }
 			     else {
@@ -187,6 +189,7 @@ private:
 
   tcp::acceptor acceptor_;
   network_room room_;
+  network_room handshake_room_;
   // has started condition variable
   std::mutex server_has_started_mutex_;
   std::condition_variable server_has_started_;
