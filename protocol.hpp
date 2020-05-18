@@ -26,7 +26,8 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             EVENT_ACK,
                                             AVAR_MESSAGE,
                                             CHAT_MESSAGE,
-                                            CONTROL };
+                                            CONTROL,
+                                            PARTICIPANT_UPDATE };
 
 struct ST_RAW_MESSAGE
 {
@@ -35,16 +36,18 @@ struct ST_RAW_MESSAGE
   std::byte buffer[1024*64-sizeof(EN_RAW_MESSAGE_HEAD)-sizeof(uint32_t)];
 };
 
-typedef std::shared_ptr<ST_RAW_MESSAGE> raw_network_message_ptr;
+typedef std::shared_ptr<ST_RAW_MESSAGE> raw_message_ptr;
 
-raw_network_message_ptr build_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
+raw_message_ptr build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
 {
-  raw_network_message_ptr rmp(new ST_RAW_MESSAGE);
+  raw_message_ptr rmp(new ST_RAW_MESSAGE);
   rmp->head = (EN_RAW_MESSAGE_HEAD) header;
   rmp->buffersize = buffersize;
   memcpy(rmp->buffer,buffer,buffersize);
   return rmp;
 }
+
+// ST_NEW_PARTICIPANT_INFO
 
 struct ST_NEW_PARTICIPANT_INFO {
   uint64_t participant_id;
@@ -52,9 +55,23 @@ struct ST_NEW_PARTICIPANT_INFO {
   std::byte buffer[1024*2];
 };
 
+ST_NEW_PARTICIPANT_INFO build_new_participant_info(uint64_t participant_id)
+{
+  ST_NEW_PARTICIPANT_INFO newpi;
+  newpi.participant_id = participant_id;
+  newpi.buffersize = 0;
+  return newpi;
+}
+
+// ST_NEW_PARTICIPANT_INFO_ACK
+
 struct ST_NEW_PARTICIPANT_INFO_ACK {
   uint8_t bool_response;
 };
+
+typedef std::shared_ptr<ST_NEW_PARTICIPANT_INFO_ACK> ST_NEW_PARTICIPANT_INFO_ACK_PTR;
+
+// ST_PARTICIPANT_UPDATE
 
 struct ST_PARTICIPANT_UPDATE {
   uint64_t participant_id;
@@ -67,17 +84,45 @@ struct ST_PARTICIPANT_UPDATE {
   double rotation_rhand[4];
 };
 
+ST_PARTICIPANT_UPDATE build_partcipant_update(uint64_t participant_id, uint64_t timestamp, double *data)
+{
+  ST_PARTICIPANT_UPDATE update;
+  update.participant_id = participant_id;
+  update.timestamp = timestamp;
+  return update;
+}
+
+// ST_PARTICIPANT_UPDATE_ACK
+
 struct ST_PARTICIPANT_UPDATE_ACK {
   uint64_t timestamp;
 };
+
+
+// ST_HANDSHAKE_HELLO
 
 struct ST_HANDSHAKE_HELLO {
   uint64_t service_id; // id of the server
   uint64_t participant_id; // id asigned by the server
   uint64_t server_timestamp; // timestamp of the server in UTC0
-  uint64_t servername_buffersize;
+  uint32_t servername_buffersize;
   std::byte servername_buffer[1024]; // 1kb for the name, check this in code
 };
+
+ST_HANDSHAKE_HELLO build_handshake_hello(uint64_t service_id, uint64_t participant_id,
+                                         uint64_t server_timestamp, uint32_t servername_buffersize,
+                                         std::string servername)
+{
+  ST_HANDSHAKE_HELLO hello;
+  hello.service_id = service_id;
+  hello.participant_id = participant_id;
+  hello.server_timestamp = server_timestamp;
+  hello.servername_buffersize = servername_buffersize;
+  memcpy(hello.servername_buffer,servername.c_str(),servername.size());
+  return hello;
+}
+
+// ST_HANDSHAKE_HELLO_ACK
 
 struct ST_HANDSHAKE_HELLO_ACK
 {
@@ -97,6 +142,8 @@ enum class EN_SECURITY : int16_t { LOGIN_PASSWORD,
                                    SSL,
                                    TLS };
 
+// ST_HANDSHAKE_CREDENTIALS
+
 struct ST_HANDSHAKE_CREDENTIALS
 {
   uint32_t server_certificate_buffersize;
@@ -107,8 +154,19 @@ struct ST_HANDSHAKE_CREDENTIALS
   }
 };
 
+typedef std::shared_ptr<ST_HANDSHAKE_CREDENTIALS> ST_HANDSHAKE_CREDENTIALS_PTR;
+
+ST_HANDSHAKE_CREDENTIALS build_handshake_credentials()
+{
+  ST_HANDSHAKE_CREDENTIALS cred;
+  return cred;
+}
+
+// ST_HANDSHAKE_CREDENTIALS_ACK
+
 struct ST_HANDSHAKE_CREDENTIALS_ACK
 {
+  uint64_t participant_id;
   uint32_t login_buffersize;
   std::byte login_buffer[1024];
   uint32_t password_buffersize;

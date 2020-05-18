@@ -2,7 +2,7 @@
 #define SESSION_H__
 
 #include "nr_base.hpp"
-#include "room.hpp" 
+#include "room.hpp"
 
 class nr_session : public nr_participant, public std::enable_shared_from_this<nr_session>
 {
@@ -12,14 +12,37 @@ public:
   typedef std::deque<buffer_type_ptr> deque_buffer_type_ptr;
   typedef std::shared_ptr<nr_session> nr_session_ptr;
 
-  nr_session(tcp::socket socket, network_room& room) : socket_(std::move(socket)),
-                                                       room_(room),
-                                                       keep_alive(true)
+  nr_session(tcp::socket socket,
+             network_room& room,
+             network_room& hroom,
+             uint64_t service_id,
+             std::string server_name) : socket_(std::move(socket)),
+                                        room_(room),
+                                        m_handshake_room(hroom),
+                                        keep_alive(true),
+                                        m_service_id(service_id),
+                                        m_server_name(server_name)
   {
     //TODO: start timeout
     read_buffer_.reserve(64 * 1024);
     write_buffer_.reserve(64 * 1024);
   }
+
+  /*nr_session(tcp::socket socket_,
+             network_room& room,
+             uint64_t service_id,
+             std::string server_name) : socket_(std::move(socket_)),
+                                        room_(room),
+                                        keep_alive(true),
+                                        m_service_id(service_id)
+                                        //m_server_name(server_name)
+  {
+    //TODO: start timeout
+    read_buffer_.reserve(64 * 1024);
+    write_buffer_.reserve(64 * 1024);
+    m_socket_ptr = std::make_shared<tcp::socket>(socket_);
+    m_server_name = server_name;
+    }*/
 
   ~nr_session()
   {
@@ -28,7 +51,9 @@ public:
   void start()
   {
     IP = socket_.remote_endpoint().address().to_string();
-    room_.join(shared_from_this());
+    //IP = m_socket_ptr->remote_endpoint().address().to_string();
+    //room_.join(shared_from_this());
+    m_handshake_room.join(shared_from_this());
     //do_read_header();
     do_read_byte();
   }
@@ -83,6 +108,7 @@ public:
   {
     boost::asio::socket_base::keep_alive o(keep_alive);
     socket_.set_option(boost::asio::socket_base::keep_alive(o));
+    //m_socket_ptr->set_option(boost::asio::socket_base::keep_alive(o));
     return NR_OK;
   }
 
@@ -90,6 +116,7 @@ public:
   {
     boost::asio::socket_base::keep_alive o;
     socket_.get_option(o);
+    //m_socket_ptr->get_option(o);
     return o.value();
   }
 
@@ -98,14 +125,19 @@ private:
   void do_close()
   {
     if (socket_.is_open()) {
-      std::cout << "disconnecting participant " << ID_ << " socket id: " << std::endl;
+    //if(m_socket_ptr->is_open()) {
+      std::cout << "nr_session::do_close(): disconnecting participant " << ID_ << std::endl;
+      //log this
+      //LOG_NOTIFICATION(std::string("disconnecting participant ") << ID_);
       boost::system::error_code errorcode;
-      socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, errorcode);
+      //socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, errorcode);
+      m_socket_ptr->shutdown(boost::asio::ip::tcp::socket::shutdown_both, errorcode);
       if (errorcode) {
         //trace("Closing failed: ", errorcode.message());
         std::cerr << "nr_session do_close  shutdown socket error: " << errorcode.message();
       }
-      socket_.close(errorcode);
+      //socket_.close(errorcode);
+      m_socket_ptr->close(errorcode);
       if (errorcode) {
         //trace("Closing2 failed: ", errorcode.message());
         std::cerr << "nr_session do_close closing socket error: " << errorcode.message();
@@ -117,14 +149,43 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
+    //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
                                 //size_t cap = read_buffer_.capacity();
                                 // transfer completed
-                                room_.new_message(this->ID_, read_buffer_.data(), (uint32_t)read_buffer_.capacity());
-                                if (room_.get_broadcast_messages()) room_.deliver_byte(read_buffer_.data(),read_buffer_.capacity());
-                                memset(read_buffer_.data(), 0x00, read_buffer_.capacity());
+                                ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
+                                switch(message->head){
+                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
+                                  handshake_session::handshake_hello_ack(message->buffer,message->buffersize);
+                                  break;
+                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK:
+                                  ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>(buffer);
+                                  if(handshake_session::handshake_credentials_ack(message->buffer,message->buffersize)) {
+                                    // ask for info
+                                    //room_.push_back(shared_from_this());
+                                    //m_handshake_room.leave(shared_from_this());
+                                  }else{
+                                    m_handshake_room.leave(shared_from_this());
+                                  }
+                                  break;
+                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
+                                  //participant_info_request(message->buffer,message->buffersize);
+                                  break;
+                                case EN_RAW_MESSAGE_HEAD::NEW_PARTICIPANT_INFO_ACK:
+                                  //new_participant_info_ack(message->buffer,message->buffersize);
+                                  break;
+                                default:
+                                  //LOG_WARNING("attempt to do handshake in runtime mode.");
+                                  break;
+                                };
+                                //room_.new_message(this->ID_, read_buffer_.data(), (uint32_t)read_buffer_.capacity());
+
+                                //if (room_.get_broadcast_messages())
+                                //  room_.deliver_byte(read_buffer_.data(),read_buffer_.capacity());
+
+                                //memset(read_buffer_.data(), 0x00, read_buffer_.capacity());
                                 do_read_byte();
                               }
                               else {
@@ -138,6 +199,7 @@ private:
     // decoding header
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
+    //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.data(), nr_message::header_length),
                             [this, self](boost::system::error_code ec, std::size_t ){
                               if (!ec && read_msg_.decode_header()) {
@@ -154,6 +216,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
+    //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
                             [this, self](boost::system::error_code ec, std::size_t ) {
                               if (!ec) {
@@ -172,6 +235,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
+                             //boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(write_msgs_.front().data(),write_msgs_.front().length()),
                              [this, self](boost::system::error_code ec, std::size_t /*length*/) {
                                if (!ec) {
@@ -191,6 +255,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
+    //boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(deque_write_buffer_.front()->data(),
                                                  deque_write_buffer_.front()->capacity()),
                              [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
@@ -209,7 +274,9 @@ private:
 
 protected:
   tcp::socket socket_;
+  std::shared_ptr<tcp::socket> m_socket_ptr;
   network_room& room_;
+  network_room& m_handshake_room;
   buffer_type read_buffer_;
   buffer_type write_buffer_;
   deque_buffer_type_ptr deque_write_buffer_;
@@ -217,7 +284,8 @@ protected:
   nr_message read_msg_;
   nr_message_queue write_msgs_;
   bool keep_alive;
-
+  uint64_t m_service_id;
+  std::string m_server_name;
 };// END nr_session
 
 typedef nr_session::nr_session_ptr nr_session_ptr;

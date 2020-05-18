@@ -50,22 +50,19 @@ public:
       signal_participant_leave(participant->ID_);
       participants_.erase(participant);
     }
-    catch (std::exception & e)
-      {
-	std::cout << "leave exception catched" << e.what() << std::endl;
-	// log exception
-      }
+    catch (std::exception & e){
+      std::cout << "leave exception catched" << e.what() << std::endl;
+      // log exception
+    }
   }
 
   void deliver_byte(std::byte *buffer, size_t buffersize)
   {
-    if (broadcast_participants_messages)
-      {
-	for (auto participant : participants_)
-	  {
+    if (broadcast_participants_messages){
+      for (auto participant : participants_){
 	    participant->deliver_byte(buffer, buffersize);
 	  }
-      }
+    }
   }
 
   void deliver(const nr_message& msg)
@@ -86,9 +83,9 @@ public:
 
   size_t participants_count()
   {
-    return participants_.size(); 
+    return participants_.size();
   }
-     
+
   int set_max_participants(uint16_t max_participants)
   {
     max_participants_ = max_participants;
@@ -119,12 +116,12 @@ public:
   {
     return max_recent_msgs;
   }
-    
+
   void set_broadcast_messages(bool broadcast)
   {
     broadcast_participants_messages.store(broadcast);
   }
-    
+
   bool get_broadcast_messages()
   {
     return broadcast_participants_messages;
@@ -157,15 +154,14 @@ public:
     assert(nptr != nullptr);
     // TODO: make participants_ thread safe
     nr_participant_ptr nrpi_ptr = get_participant_ptr(participant_id);
-    if ( nrpi_ptr != nullptr)
-      {
-	nptr->id_ = nrpi_ptr->info_ptr_->id_;
-	nptr->server_id_ = nrpi_ptr->info_ptr_->server_id_;
-	memset(nptr->ipv4_ip, 0x00, 512);
-	memset(nptr->name,0x00,1024);
-	memcpy(nptr->ipv4_ip, nrpi_ptr->info_ptr_->ipv4_ip, 512);
-	memcpy(nptr->name, nrpi_ptr->info_ptr_->name,1024);
-      }
+    if ( nrpi_ptr != nullptr) {
+      nptr->id_ = nrpi_ptr->info_ptr_->id_;
+      nptr->server_id_ = nrpi_ptr->info_ptr_->server_id_;
+      memset(nptr->ipv4_ip, 0x00, 512);
+      memset(nptr->name,0x00,1024);
+      memcpy(nptr->ipv4_ip, nrpi_ptr->info_ptr_->ipv4_ip, 512);
+      memcpy(nptr->name, nrpi_ptr->info_ptr_->name,1024);
+    }
   }
 
   void disconnect_all_callbacks()
@@ -174,11 +170,6 @@ public:
     signal_new_message.disconnect_all_slots();
     signal_message_broadcast_message.disconnect_all_slots();
     signal_participant_leave.disconnect_all_slots();
-  }
-
-  unsigned char* get_node_location()
-  {
-    return 0x00;
   }
 
   int set_max_participant_buffer_size(uint64_t size)
@@ -203,7 +194,7 @@ public:
       }
       else
       {*/
-    //TODO: this must be changed for a post in asio, if the programmer make a large funciton in the callback the performance will be screw
+    //TODO: this must be changed for a post in asio, if the programmer make a large function in the callback the performance will be screw
     new_messages_buffer_mutex.lock();
     signal_new_message(participant_id, (char*)buffer, buffer_size);
     new_messages_buffer_mutex.unlock();
@@ -228,7 +219,7 @@ public:
     }
     return false;
   }
-  
+
   ~network_room()
   {
     try {
@@ -236,14 +227,13 @@ public:
       disconnect_all_participants();
       recent_msgs_.clear();
     }
-    catch (std::exception & e)
-      {
-	std::cerr << "~network_room exeption: " << e.what();
-      }
+    catch (std::exception & e) {
+      std::cerr << "~network_room exeption: " << e.what();
+    }
   }
-  
+
 private:
-    
+
   nr_participant_ptr get_participant_ptr(uint64_t id)
   {
     std::set<nr_participant_ptr>::iterator it = participants_.find(id);
@@ -265,7 +255,6 @@ private:
   size_t max_recent_msgs = 100;
   std::deque<nr_message> nr_message_buffer;
   nr_message_queue recent_msgs_;
-    
   //message memory managment
   std::atomic_bool b_buffered_messages_;
   std::mutex new_messages_buffer_mutex;
@@ -276,6 +265,7 @@ private:
   size_t max_message_buffer_size_;
   size_t super_message_buffer_size_;
   std::atomic_bool b_prealocate_supper_message_buffer_;
+  std::string m_server_name;
 }; // end network_room
 
 typedef network_room::new_participant_callback_slot_type new_participant_callback_slot_type;
