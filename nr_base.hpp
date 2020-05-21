@@ -56,10 +56,10 @@ enum log_severity_level
 };
 
 boost::log::sources::severity_logger<log_severity_level> slg;
-#define LOG_INFO(MSG)  BOOST_LOG_SEV(slg,normal) << MSG;
-#define LOG_ERROR(MSG) BOOST_LOG_SEV(slg,error) << MSG;
-#define LOG_WARNING(MSG) BOOST_LOG_SEV(slg,warning) << MSG;
-#define LOG_NOTIFICATION(MSG) BOOST_LOG_SEV(slg,notification) << MSG;
+//#define LOG_INFO(MSG)  BOOST_LOG_SEV(slg,normal) << (#MSG) ;
+//#define LOG_ERROR(MSG) BOOST_LOG_SEV(slg,error) << (#MSG) ;
+//#define LOG_WARNING(MSG) BOOST_LOG_SEV(slg,warning) << (#MSG) ;
+//#define LOG_NOTIFICATION(MSG) BOOST_LOG_SEV(slg,notification) <<(#MSG) ;
 
 void init_log()
 {
@@ -72,6 +72,11 @@ typedef void(*new_participant_callback)(uint64_t);
 typedef void(*new_message_callback)(uint64_t,char *buffer, uint32_t buffer_size);
 typedef void(*participant_leave_callback)(uint64_t participant_id);
 typedef void(*participant_network_event)(uint64_t participant_id, uint32_t event);
+
+uint64_t get_timestamp_now()
+{
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
 /*
 boost::asio::ip::address_v6 v6_from_string(std::string s)

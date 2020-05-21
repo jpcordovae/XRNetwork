@@ -20,12 +20,14 @@ public:
 
   handshake_session(tcp::socket socket_,
                     network_room &room,
+                    network_room &handshake_room,
                     uint64_t service_id,
                     std::string server_name) : nr_session(std::move(socket_),
                                                           room,
+                                                          handshake_room,
                                                           service_id,
                                                           server_name),
-                                                last_status(EN_RAW_MESSAGE_HEAD::NONE)
+                                               last_status(EN_RAW_MESSAGE_HEAD::NONE)
   {
   }
 
@@ -52,11 +54,11 @@ private:
     //auto value = std::chrono::duration_cast<std::chrono::milliseconds>(now_ms.time_since_epoch());
     //uint64_t timestamp = std::chrono::duration<uint64_t>(value.count());
     uint64_t timestamp;
-    ST_HANDSHAKE_HELLO hello = build_handshake_hello(m_service_id,ID_,timestamp,m_server_name.size(),m_server_name);
-    raw_message_ptr msg = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hello,sizeof(hello));
+    ST_HANDSHAKE_HELLO hello = build_handshake_hello(m_service_id,ID_,timestamp,m_server_name);
+    //raw_message_ptr msg = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hello,sizeof(hello));
   }
 
-  static void handshake_hello_ack(std::byte *buffer, uint32_t buffersize)
+  void handshake_hello_ack(std::byte *buffer, uint32_t buffersize)
   {
     //ST_HANDSHAKE_HELLO_ACK *message = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)buffer);
     //message->participant_id;
@@ -69,7 +71,7 @@ private:
     deliver_byte((std::byte*)&msg,sizeof(msg));
   }
 
-  static bool handshake_credentials_ack(std::byte *buffer, uint32_t buffersize)
+  bool handshake_credentials_ack(std::byte *buffer, uint32_t buffersize)
   {
     ST_HANDSHAKE_CREDENTIALS_ACK *msg = (ST_HANDSHAKE_CREDENTIALS_ACK*)buffer;
     if(strcmp((char*)msg->login_buffer,"login")!=0 || strcmp((char*)msg->password_buffer,"password")!=0) {
@@ -96,7 +98,7 @@ private:
                                   handshake_credentials_ack(message->buffer,message->buffersize);
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
-                                  //participant_info_request(message->buffer,message->buffersize);
+                                  //ST_PARTICIPANT_INFO_REQUEST pir =  participant_info_request(shared_from_this());
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::NEW_PARTICIPANT_INFO_ACK:
                                   //new_participant_info_ack(message->buffer,message->buffersize);

@@ -29,14 +29,14 @@ public:
   }
 
   /*nr_session(tcp::socket socket_,
-             network_room& room,
-             uint64_t service_id,
-             std::string server_name) : socket_(std::move(socket_)),
-                                        room_(room),
-                                        keep_alive(true),
-                                        m_service_id(service_id)
-                                        //m_server_name(server_name)
-  {
+    network_room& room,
+    uint64_t service_id,
+    std::string server_name) : socket_(std::move(socket_)),
+    room_(room),
+    keep_alive(true),
+    m_service_id(service_id)
+    //m_server_name(server_name)
+    {
     //TODO: start timeout
     read_buffer_.reserve(64 * 1024);
     write_buffer_.reserve(64 * 1024);
@@ -56,6 +56,7 @@ public:
     m_handshake_room.join(shared_from_this());
     //do_read_header();
     do_read_byte();
+    do_start_handshake();
   }
 
   void deliver(const nr_message& msg)
@@ -122,10 +123,17 @@ public:
 
 private:
 
+  void do_start_handshake()
+  {
+    ST_HANDSHAKE_HELLO hh = build_handshake_hello(m_service_id,ID_,get_timestamp_now(),m_server_name);
+    ST_RAW_MESSAGE raw = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,sizeof(hh));
+    deliver_byte((std::byte*)&raw,sizeof(ST_RAW_MESSAGE));
+  }
+
   void do_close()
   {
     if (socket_.is_open()) {
-    //if(m_socket_ptr->is_open()) {
+      //if(m_socket_ptr->is_open()) {
       std::cout << "nr_session::do_close(): disconnecting participant " << ID_ << std::endl;
       //log this
       //LOG_NOTIFICATION(std::string("disconnecting participant ") << ID_);
@@ -149,7 +157,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
-    //boost::asio::async_read(*m_socket_ptr,
+                            //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
@@ -158,26 +166,37 @@ private:
                                 ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
                                 switch(message->head){
                                 case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
-                                  handshake_session::handshake_hello_ack(message->buffer,message->buffersize);
+                                  {
+                                    //handshake_hello_ack(message->buffer,message->buffersize);
+                                    ST_HANDSHAKE_HELLO_ACK *hha = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)message->buffer);
+                                    uint64_t part_id = hha->participant_id;
+                                    m_name = std::string((char*)hha->participant_name_buffer);
+                                    //
+                                  }
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK:
-                                  ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>(buffer);
-                                  if(handshake_session::handshake_credentials_ack(message->buffer,message->buffersize)) {
-                                    // ask for info
-                                    //room_.push_back(shared_from_this());
-                                    //m_handshake_room.leave(shared_from_this());
-                                  }else{
-                                    m_handshake_room.leave(shared_from_this());
+                                  {
+                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
+                                    uint64_t participant_id = msg->participant_id;
+                                    if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
+                                      m_handshake_room.leave(shared_from_this());
+                                    }
+                                    
                                   }
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
                                   //participant_info_request(message->buffer,message->buffersize);
+                                  {
+                                  }
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::NEW_PARTICIPANT_INFO_ACK:
                                   //new_participant_info_ack(message->buffer,message->buffersize);
+                                  {
+                                  }
                                   break;
                                 default:
-                                  //LOG_WARNING("attempt to do handshake in runtime mode.");
+                                  //LOG_WARNING("meader message not recognized.");
+                                  
                                   break;
                                 };
                                 //room_.new_message(this->ID_, read_buffer_.data(), (uint32_t)read_buffer_.capacity());
@@ -199,7 +218,7 @@ private:
     // decoding header
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
-    //boost::asio::async_read(*m_socket_ptr,
+                            //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.data(), nr_message::header_length),
                             [this, self](boost::system::error_code ec, std::size_t ){
                               if (!ec && read_msg_.decode_header()) {
@@ -216,7 +235,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_read(socket_,
-    //boost::asio::async_read(*m_socket_ptr,
+                            //boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
                             [this, self](boost::system::error_code ec, std::size_t ) {
                               if (!ec) {
@@ -255,7 +274,7 @@ private:
   {
     auto self(shared_from_this());
     boost::asio::async_write(socket_,
-    //boost::asio::async_write(*m_socket_ptr,
+                             //boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(deque_write_buffer_.front()->data(),
                                                  deque_write_buffer_.front()->capacity()),
                              [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
@@ -279,6 +298,7 @@ protected:
   network_room& m_handshake_room;
   buffer_type read_buffer_;
   buffer_type write_buffer_;
+  std::mutex m_deque_write_buffer_mutex;
   deque_buffer_type_ptr deque_write_buffer_;
   deque_buffer_type_ptr deque_read_buffer_;
   nr_message read_msg_;

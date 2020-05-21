@@ -26,8 +26,7 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             EVENT_ACK,
                                             AVAR_MESSAGE,
                                             CHAT_MESSAGE,
-                                            CONTROL,
-                                            PARTICIPANT_UPDATE };
+                                            CONTROL };
 
 struct ST_RAW_MESSAGE
 {
@@ -38,14 +37,50 @@ struct ST_RAW_MESSAGE
 
 typedef std::shared_ptr<ST_RAW_MESSAGE> raw_message_ptr;
 
-raw_message_ptr build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
+/*raw_message_ptr build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
 {
   raw_message_ptr rmp(new ST_RAW_MESSAGE);
   rmp->head = (EN_RAW_MESSAGE_HEAD) header;
   rmp->buffersize = buffersize;
   memcpy(rmp->buffer,buffer,buffersize);
   return rmp;
+  }*/
+
+ST_RAW_MESSAGE build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
+{
+  ST_RAW_MESSAGE rm;
+  rm.head = (EN_RAW_MESSAGE_HEAD) header;
+  rm.buffersize = buffersize;
+  memcpy(rm.buffer,buffer,buffersize);
+  return rm;
 }
+
+// PARTICIPANT_INFO_REQUEST
+
+struct ST_PARTICIPANT_INFO_REQUEST {
+  uint64_t participant_id; // just to add a dummy load
+};
+
+ST_PARTICIPANT_INFO_REQUEST build_participant_info_request(uint64_t participant_id)
+{
+  ST_PARTICIPANT_INFO_REQUEST pir;
+  pir.participant_id = participant_id;
+  return pir;
+}
+
+// PARTICIPANT_INFO_EQUEST_ACK
+
+struct ST_PARTICIPANT_INFO_REQUEST_ACK {
+  uint64_t participant_id;
+  uint32_t namebuffer_size;
+  std::byte namebuffer[1024];
+  ST_PARTICIPANT_INFO_REQUEST_ACK(): participant_id(0),
+                                     namebuffer_size(0)
+  {
+    memset(namebuffer, 0x00, 1024);
+  }
+};
+
 
 // ST_NEW_PARTICIPANT_INFO
 
@@ -110,14 +145,13 @@ struct ST_HANDSHAKE_HELLO {
 };
 
 ST_HANDSHAKE_HELLO build_handshake_hello(uint64_t service_id, uint64_t participant_id,
-                                         uint64_t server_timestamp, uint32_t servername_buffersize,
-                                         std::string servername)
+                                         uint64_t server_timestamp, std::string servername)
 {
   ST_HANDSHAKE_HELLO hello;
   hello.service_id = service_id;
   hello.participant_id = participant_id;
   hello.server_timestamp = server_timestamp;
-  hello.servername_buffersize = servername_buffersize;
+  hello.servername_buffersize = servername.size();
   memcpy(hello.servername_buffer,servername.c_str(),servername.size());
   return hello;
 }

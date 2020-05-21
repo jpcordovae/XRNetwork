@@ -186,7 +186,7 @@ private:
 			   [this,self](boost::system::error_code ec, tcp::socket socket)
 			   {
 			     if (!ec) {
-                   std::make_shared<nr_session>(std::move(socket), room_, m_handhsake_room, m_service_id, m_service_name)->start();
+                   std::make_shared<nr_session>(std::move(socket), room_, m_handshake_room, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket), handshake_room_, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket),
                    //                                    handshake_room_,

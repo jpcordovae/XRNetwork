@@ -92,6 +92,7 @@ public:
   void set_deaf(bool deaf) { deaf_ = deaf; }
   nr_participant_info_ptr get_participant_info() { return info_ptr_; }
   std::string name;
+  std::string m_name;
   std::string IP;
   //std::deque<nr_message> messages_deque; // in case you want to inspect the messages
   uint64_t ID_; // random ID for the participant
