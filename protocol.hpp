@@ -16,14 +16,14 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             HANDSHAKE_CREDENTIALS_ACK,
                                             HANDSHAKE_STATISTICS_REQUEST,
                                             HANDSHAKE_STATISTICS_REQUEST_ACK,
+                                            HANDSHAKE_PARTICIPANT_UPDATE,
+                                            HADNSHAKE_PARTICIPANT_UPDATE_ACK,
                                             PARTICIPANT_INFO_REQUEST,
                                             PARTICIPANT_INFO_REQUEST_ACK,
-                                            NEW_PARTICIPANT_INFO,
-                                            NEW_PARTICIPANT_INFO_ACK,
                                             PARTICIPANT_UPDATE,
                                             PARTICIPANT_UPDATE_ACK,
-                                            EVENT,
-                                            EVENT_ACK,
+                                            PARTICIPANT_EVENT,
+                                            PARTICIPANT_EVENT_ACK,
                                             AVAR_MESSAGE,
                                             CHAT_MESSAGE,
                                             CONTROL };
@@ -81,55 +81,24 @@ struct ST_PARTICIPANT_INFO_REQUEST_ACK {
   }
 };
 
-
-// ST_NEW_PARTICIPANT_INFO
-
-struct ST_NEW_PARTICIPANT_INFO {
-  uint64_t participant_id;
-  uint32_t buffersize;
-  std::byte buffer[1024*2];
-};
-
-ST_NEW_PARTICIPANT_INFO build_new_participant_info(uint64_t participant_id)
-{
-  ST_NEW_PARTICIPANT_INFO newpi;
-  newpi.participant_id = participant_id;
-  newpi.buffersize = 0;
-  return newpi;
-}
-
-// ST_NEW_PARTICIPANT_INFO_ACK
-
-struct ST_NEW_PARTICIPANT_INFO_ACK {
-  uint8_t bool_response;
-};
-
-typedef std::shared_ptr<ST_NEW_PARTICIPANT_INFO_ACK> ST_NEW_PARTICIPANT_INFO_ACK_PTR;
-
 // ST_PARTICIPANT_UPDATE
 
-struct ST_PARTICIPANT_UPDATE {
-  uint64_t participant_id;
-  uint64_t timestamp;
-  double position[3];
-  double rotation[4]; // quaternion w,i,j,k
-  double position_lhand[3];
-  double rotation_lhand[4];
-  double position_rhand[3];
-  double rotation_rhand[4];
+struct ST_HANDSHAKE_PARTICIPANT_UPDATE {
+  uint64_t dt_ms; // time between updates
+  uint16_t bool_automatic_send;
 };
 
-ST_PARTICIPANT_UPDATE build_partcipant_update(uint64_t participant_id, uint64_t timestamp, double *data)
+ST_HANDSHAKE_PARTICIPANT_UPDATE build_partcipant_update(uint64_t participant_id, uint64_t timestamp, double *data)
 {
-  ST_PARTICIPANT_UPDATE update;
-  update.participant_id = participant_id;
-  update.timestamp = timestamp;
+  ST_HANDSHAKE_PARTICIPANT_UPDATE update;
+  update.dt_ms = 100;
+  update.bool_automatic_send = 1;
   return update;
 }
 
 // ST_PARTICIPANT_UPDATE_ACK
 
-struct ST_PARTICIPANT_UPDATE_ACK {
+struct ST_HANDSHAKE_PARTICIPANT_UPDATE_ACK {
   uint64_t timestamp;
 };
 
@@ -205,16 +174,16 @@ struct ST_HANDSHAKE_CREDENTIALS_ACK
   std::byte login_buffer[1024];
   uint32_t password_buffersize;
   std::byte password_buffer[1014];
-  uint32_t server_certificate_buffersize;
-  std::byte server_certificate_buffer[20*1024]; // 20kb reserved for certificates
+  uint32_t participant_certificate_buffersize;
+  std::byte participant_certificate_buffer[20*1024]; // 20kb reserved for certificates
 
   ST_HANDSHAKE_CREDENTIALS_ACK() : login_buffersize(0),
                                    password_buffersize(0),
-                                   server_certificate_buffersize(0)
+                                   participant_certificate_buffersize(0)
   {
     memset(login_buffer,0x00,1024);
     memset(password_buffer,0x00,1024);
-    memset(server_certificate_buffer,0x00,20*1024); // clean the buffer
+    memset(participant_certificate_buffer,0x00,20*1024); // clean the buffer
   }
 };
 

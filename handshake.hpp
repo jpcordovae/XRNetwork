@@ -100,9 +100,6 @@ private:
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
                                   //ST_PARTICIPANT_INFO_REQUEST pir =  participant_info_request(shared_from_this());
                                   break;
-                                case EN_RAW_MESSAGE_HEAD::NEW_PARTICIPANT_INFO_ACK:
-                                  //new_participant_info_ack(message->buffer,message->buffersize);
-                                  break;
                                 default:
                                   //LOG_WARNING("attempt to do handshake in runtime mode.");
                                   break;

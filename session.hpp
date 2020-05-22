@@ -189,7 +189,7 @@ private:
                                   {
                                   }
                                   break;
-                                case EN_RAW_MESSAGE_HEAD::NEW_PARTICIPANT_INFO_ACK:
+                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
                                   //new_participant_info_ack(message->buffer,message->buffersize);
                                   {
                                   }
