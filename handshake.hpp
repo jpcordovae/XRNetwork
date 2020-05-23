@@ -7,36 +7,36 @@
 class handshake_session : public nr_session
 {
 public:
-  /*handshake_session(tcp::socket socket,
+  handshake_session(std::shared_ptr<tcp::socket> socket,
                     network_room &room,
+                    const uint64_t service_id,
+                    const std::string server_name) : nr_session(socket,
+                                                                room,
+                                                                service_id,
+                                                                server_name),
+                                                     last_status(EN_RAW_MESSAGE_HEAD::NONE)
+  {
+  }
+
+  /*handshake_session(tcp::socket socket_,
+                    network_room &room,
+                    //network_room &handshake_room,
                     uint64_t service_id,
-                    std::string server_name) : nr_session(std::move(socket),
-                                                          room,
+                    std::string server_name) : nr_session(std::move(socket_),
+                                                          handshake_room(room),
                                                           service_id,
                                                           server_name),
                                                last_status(EN_RAW_MESSAGE_HEAD::NONE)
   {
   }*/
 
-  handshake_session(tcp::socket socket_,
-                    network_room &room,
-                    network_room &handshake_room,
-                    uint64_t service_id,
-                    std::string server_name) : nr_session(std::move(socket_),
-                                                          room,
-                                                          handshake_room,
-                                                          service_id,
-                                                          server_name),
-                                               last_status(EN_RAW_MESSAGE_HEAD::NONE)
-  {
-  }
-
   void start()
   {
-    IP = socket_.remote_endpoint().address().to_string();
+    //IP = socket_.remote_endpoint().address().to_string();
     //IP = m_socket_ptr->remote_endpoint().address().to_string();
-    room_.join(shared_from_this());
-    do_read_handshake();
+    //room.join(shared_from_this());
+    //do_read_handshake();
+    nr_session::start();
     do_handshake();
   }
 
@@ -49,12 +49,13 @@ private:
 
   void do_handshake()
   {
+    std::cout << "starting handshake" << std::endl;
     //timestamp
     //auto now_ms = std::chrono::system_clock::now();
     //auto value = std::chrono::duration_cast<std::chrono::milliseconds>(now_ms.time_since_epoch());
     //uint64_t timestamp = std::chrono::duration<uint64_t>(value.count());
     uint64_t timestamp;
-    ST_HANDSHAKE_HELLO hello = build_handshake_hello(m_service_id,ID_,timestamp,m_server_name);
+    ST_HANDSHAKE_HELLO hello = build_handshake_hello(m_service_id,m_id,timestamp,m_server_name);
     //raw_message_ptr msg = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hello,sizeof(hello));
   }
 
@@ -84,12 +85,13 @@ private:
   {
     auto self(shared_from_this());
     if(!m_b_ready) m_b_ready = true;
-    boost::asio::async_read(socket_,
-    //boost::asio::async_read(*m_socket_ptr,
+    //boost::asio::async_read(socket_,
+    boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
-                                ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
+                                /*
+                                  ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
                                 switch(message->head){
                                 case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
                                   handshake_hello_ack(message->buffer,message->buffersize);
@@ -104,12 +106,13 @@ private:
                                   //LOG_WARNING("attempt to do handshake in runtime mode.");
                                   break;
                                 };
+                                */
                                 do_read_handshake();
                               }
                               else{
                                 //check_system_error_code(ec);
                                 std::cout << ec.message() << std::endl;
-                                room_.leave(shared_from_this());
+                                m_room.leave(shared_from_this());
                               }
                             });
   }

@@ -6,7 +6,7 @@
 #include "participant.hpp"
 #include "room.hpp"
 #include "session.hpp"
-#include "handshake.hpp"
+//#include "handshake.hpp"
 
 #define DEFAULT_MAX_PARTICIPANTS 10
 
@@ -21,8 +21,8 @@ class nr_server : public std::enable_shared_from_this<nr_server>
 public:
   typedef std::shared_ptr<nr_server> nr_server_ptr;
 
-  nr_server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint)
-    : acceptor_(io_context, endpoint), b_server_has_started_(false)
+  nr_server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint) : acceptor_(io_context, endpoint),
+                                                                                  b_server_has_started_(false)
   {
     //context = std::make_shared<boost::asio::io_context&>(io_context);
     room_.set_max_participants(DEFAULT_MAX_PARTICIPANTS);
@@ -38,6 +38,7 @@ public:
                       while (!b_server_has_started_) server_has_started_.wait(lock);
                     });
     m_service_id = rng();
+    //std::cout << "service ID: " << std::to_string(m_service_id) << std::endl;
     do_accept();
   }
 
@@ -94,6 +95,11 @@ public:
   void set_max_participants(uint16_t max_participants)
   {
     room_.set_max_participants(max_participants);
+  }
+
+  void set_max_handshake_connections(uint16_t max_connections)
+  {
+    m_handshake_room.set_max_participants(max_connections);
   }
 
   uint16_t get_max_participants()
@@ -186,7 +192,8 @@ private:
 			   [this,self](boost::system::error_code ec, tcp::socket socket)
 			   {
 			     if (!ec) {
-                   std::make_shared<nr_session>(std::move(socket), room_, m_handshake_room, m_service_id, m_service_name)->start();
+                   std::shared_ptr<tcp::socket> socket_ptr = std::make_shared<tcp::socket>(std::move(socket));
+                   std::make_shared<nr_session>(socket_ptr, m_handshake_room, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket), handshake_room_, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket),
                    //                                    handshake_room_,
@@ -213,6 +220,7 @@ private:
   uint64_t m_service_id;
   std::string m_service_name;
   std::mt19937_64 rng;
+  std::shared_ptr<tcp::socket> m_socket;
 };
 
 typedef nr_server::nr_server_ptr nr_server_ptr;

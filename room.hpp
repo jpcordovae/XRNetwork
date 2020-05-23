@@ -13,16 +13,17 @@ public:
   void join(nr_participant_ptr participant)
   {
     if (participants_.size() >= max_participants_) {
+      std::cout << "max participants reached" << std::endl;
       participant->disconnect();
       return;
     }
-    participant->ID_ = rng();
+    participant->m_id = rng();
     participant->set_keep_alive(keep_alive_);
     participant->info_ptr_ = nr_participant_info_ptr(new nr_participant_info());
-    participant->info_ptr_->id_ = participant->ID_;
+    participant->info_ptr_->m_id = participant->m_id;
     memcpy(participant->info_ptr_->ipv4_ip, participant->IP.c_str(), participant->IP.size());
     participants_.insert(participant);
-    signal_new_participant(participant->ID_);
+    signal_new_participant(participant->m_id);
     // begin handhsake
     /*for (auto msg : recent_msgs_) {
       participant->deliver(msg);
@@ -46,8 +47,8 @@ public:
   void leave(nr_participant_ptr participant)
   {
     try {
-      std::cout << "participant " << participant->ID_ << " leaving room" << std::endl;
-      signal_participant_leave(participant->ID_);
+      std::cout << "participant " << participant->m_id << " leaving room" << std::endl;
+      signal_participant_leave(participant->m_id);
       participants_.erase(participant);
     }
     catch (std::exception & e){
@@ -155,7 +156,7 @@ public:
     // TODO: make participants_ thread safe
     nr_participant_ptr nrpi_ptr = get_participant_ptr(participant_id);
     if ( nrpi_ptr != nullptr) {
-      nptr->id_ = nrpi_ptr->info_ptr_->id_;
+      nptr->m_id = nrpi_ptr->info_ptr_->m_id;
       nptr->server_id_ = nrpi_ptr->info_ptr_->server_id_;
       memset(nptr->ipv4_ip, 0x00, 512);
       memset(nptr->name,0x00,1024);

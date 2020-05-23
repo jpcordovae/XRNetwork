@@ -131,20 +131,33 @@ public:
   void set_protocol_v6() { PROTOCOL_VERSION_ = PROTOCOL_VERSION::V6; }
   int get_protocol_version() { return (PROTOCOL_VERSION_ == PROTOCOL_VERSION::V4 ? 4 : 6); }
 
-  int set_max_participants(uint16_t max_participants) { 
+  int set_max_participants(uint16_t max_participants) {
     try {
       max_participants_ = max_participants;
-      if (b_thread_running_)
-	{
-	  server->set_max_participants(max_participants_);
-	  return NR_OK;
-	}
+      if (b_thread_running_) {
+        server->set_max_participants(max_participants_);
+        return NR_OK;
+      }
       return NR_FAIL;
     }
     catch (std::exception &e) {
       std::cout << "set_max_participants exception: " << e.what() << std::endl;
     }
     return NR_FAIL;
+  }
+
+  int set_max_handshake_connections(uint16_t max_connections)
+  {
+    try {
+      m_handshake_max_connections = max_connections;
+      if (b_thread_running_) {
+        server->set_max_handshake_connections(max_connections);
+        return NR_OK;
+      }
+      return NR_FAIL;
+    }catch(std::exception &e) {
+      std::cout << "set_max_participants exception: " << e.what() << std::endl;
+    }
   }
 
   uint16_t get_max_participants() { return max_participants_; }
@@ -362,6 +375,7 @@ private:
   uint16_t port_;
   boost::signals2::signal<void()> OnRunning;
   boost::signals2::signal<void()> OnStopping;
+  uint16_t m_handshake_max_connections;
 };
 
 typedef XRNetworkLobbyService::xrnls_ptr xrnls_ptr;

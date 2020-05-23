@@ -43,11 +43,13 @@ void OnParticipantLeave(uint64_t participant_id)
 
 void OnServiceStarted()
 {
-  cout << "----- service has stated." << endl;
+  cout << "---- service has stated." << endl;
   if (!b_instantiated) {
     xrnls->register_callback_new_participant(OnNewParticipant);
     xrnls->register_callback_new_message(OnNewMessage);
     xrnls->register_callback_participant_leave(OnParticipantLeave);
+    xrnls->set_max_participants(100);
+    xrnls->set_max_handshake_connections(100);
     b_instantiated = true;
   }
 }
