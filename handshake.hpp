@@ -19,25 +19,22 @@ public:
   }
 
   /*handshake_session(tcp::socket socket_,
-                    network_room &room,
-                    //network_room &handshake_room,
-                    uint64_t service_id,
-                    std::string server_name) : nr_session(std::move(socket_),
-                                                          handshake_room(room),
-                                                          service_id,
-                                                          server_name),
-                                               last_status(EN_RAW_MESSAGE_HEAD::NONE)
-  {
-  }*/
+    network_room &room,
+    //network_room &handshake_room,
+    uint64_t service_id,
+    std::string server_name) : nr_session(std::move(socket_),
+    handshake_room(room),
+    service_id,
+    server_name),
+    last_status(EN_RAW_MESSAGE_HEAD::NONE)
+    {
+    }*/
 
   void start()
   {
-    //IP = socket_.remote_endpoint().address().to_string();
-    //IP = m_socket_ptr->remote_endpoint().address().to_string();
-    //room.join(shared_from_this());
-    //do_read_handshake();
     nr_session::start();
-    do_handshake();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    do_start_handshake();
   }
 
 private:
@@ -47,16 +44,17 @@ private:
   EN_RAW_MESSAGE_HEAD last_status;
   // Methods
 
-  void do_handshake()
+  void do_start_handshake()
   {
     std::cout << "starting handshake" << std::endl;
     //timestamp
     //auto now_ms = std::chrono::system_clock::now();
     //auto value = std::chrono::duration_cast<std::chrono::milliseconds>(now_ms.time_since_epoch());
     //uint64_t timestamp = std::chrono::duration<uint64_t>(value.count());
-    uint64_t timestamp;
-    ST_HANDSHAKE_HELLO hello = build_handshake_hello(m_service_id,m_id,timestamp,m_server_name);
-    //raw_message_ptr msg = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hello,sizeof(hello));
+    uint64_t timestamp = get_timestamp_now();
+    ST_HANDSHAKE_HELLO hh = build_handshake_hello(m_service_id,m_id,timestamp,m_server_name);
+    ST_RAW_MESSAGE raw = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,sizeof(hh));
+    deliver_byte((std::byte*)&raw,sizeof(ST_RAW_MESSAGE));
   }
 
   void handshake_hello_ack(std::byte *buffer, uint32_t buffersize)
@@ -90,23 +88,43 @@ private:
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
-                                /*
-                                  ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
+                                ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
                                 switch(message->head){
                                 case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
-                                  handshake_hello_ack(message->buffer,message->buffersize);
+                                  {
+                                    ST_HANDSHAKE_HELLO_ACK *hha = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)message->buffer);
+                                    m_name = std::string((char*)hha->participant_name_buffer);
+                                  }
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK:
-                                  handshake_credentials_ack(message->buffer,message->buffersize);
+                                  {
+                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
+                                    if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
+                                      m_room.leave(shared_from_this());
+                                    }
+                                  }
                                   break;
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
-                                  //ST_PARTICIPANT_INFO_REQUEST pir =  participant_info_request(shared_from_this());
+                                  //participant_info_request(message->buffer,message->buffersize);
+                                  {
+                                  }
+                                  break;
+                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
+                                  //new_participant_info_ack(message->buffer,message->buffersize);
+                                  {
+                                  }
                                   break;
                                 default:
-                                  //LOG_WARNING("attempt to do handshake in runtime mode.");
+                                  //LOG_WARNING("meader message not recognized.");
                                   break;
                                 };
-                                */
+                                //room_.new_message(this->ID_, read_buffer_.data(), (uint32_t)read_buffer_.capacity());
+
+                                //if (room_.get_broadcast_messages())
+                                //  room_.deliver_byte(read_buffer_.data(),read_buffer_.capacity());
+
+                                //memset(read_buffer_.data(), 0x00, read_buffer_.capacity());
+
                                 do_read_handshake();
                               }
                               else{

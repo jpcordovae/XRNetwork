@@ -174,7 +174,7 @@ public:
     return NR_OK;
   }
 
-  bool get_broadcasting_all_messages() { 
+  bool get_broadcasting_all_messages() {
     return b_auto_broadcast_all_incoming_messages;
   }
 
@@ -246,8 +246,8 @@ public:
     }
   }
 
-  uint16_t participants_count() 
-  {  
+  uint16_t participants_count()
+  {
     try {
       if (b_thread_running_)
 	return server->participants_count();
@@ -257,7 +257,7 @@ public:
     }
     return 0;
   };
-  
+
   void get_participant_info(const uint64_t participant_id, nr_participant_info* pinfo)
   {
     assert(pinfo != nullptr);
@@ -285,7 +285,7 @@ public:
   void set_service_name(std::string name) { service_name_ = name; }
   std::string get_service_name() { return service_name_; }
 
-  ~XRNetworkLobbyService() 
+  ~XRNetworkLobbyService()
   {
     if (b_thread_running_)
       {

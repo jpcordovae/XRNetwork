@@ -6,7 +6,7 @@
 #include "participant.hpp"
 #include "room.hpp"
 #include "session.hpp"
-//#include "handshake.hpp"
+#include "handshake.hpp"
 
 #define DEFAULT_MAX_PARTICIPANTS 10
 
@@ -193,7 +193,7 @@ private:
 			   {
 			     if (!ec) {
                    std::shared_ptr<tcp::socket> socket_ptr = std::make_shared<tcp::socket>(std::move(socket));
-                   std::make_shared<nr_session>(socket_ptr, m_handshake_room, m_service_id, m_service_name)->start();
+                   std::make_shared<handshake_session>(socket_ptr, m_handshake_room, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket), handshake_room_, m_service_id, m_service_name)->start();
                    //std::make_shared<handshake_session>(std::move(socket),
                    //                                    handshake_room_,

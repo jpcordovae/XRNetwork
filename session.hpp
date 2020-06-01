@@ -53,10 +53,7 @@ public:
     //IP = socket_.remote_endpoint().address().to_string();
     IP = m_socket_ptr->remote_endpoint().address().to_string();
     m_room.join(shared_from_this());
-    //m_handshake_room.join(shared_from_this()); // m_id is modified in room->join(%)
-    //do_read_header();
     do_read_byte();
-    do_start_handshake();
   }
 
   void deliver(const nr_message& msg)
@@ -123,13 +120,6 @@ public:
 
 private:
 
-  void do_start_handshake()
-  {
-    ST_HANDSHAKE_HELLO hh = build_handshake_hello(m_service_id,m_id,get_timestamp_now(),m_server_name);
-    ST_RAW_MESSAGE raw = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,sizeof(hh));
-    deliver_byte((std::byte*)&raw,sizeof(ST_RAW_MESSAGE));
-  }
-
   void do_close()
   {
     try {
@@ -169,42 +159,11 @@ private:
                                 // transfer completed
                                 ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
                                 switch(message->head){
-                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
-                                  {
-                                    //handshake_hello_ack(message->buffer,message->buffersize);
-                                    ST_HANDSHAKE_HELLO_ACK *hha = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)message->buffer);
-                                    m_name = std::string((char*)hha->participant_name_buffer);
-                                    //
-                                  }
-                                  break;
-                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK:
-                                  {
-                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
-                                    if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
-                                      m_room.leave(shared_from_this());
-                                    }
-                                  }
-                                  break;
-                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
-                                  //participant_info_request(message->buffer,message->buffersize);
-                                  {
-                                  }
-                                  break;
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
-                                  //new_participant_info_ack(message->buffer,message->buffersize);
-                                  {
-                                  }
                                   break;
                                 default:
-                                  //LOG_WARNING("meader message not recognized.");
                                   break;
-                                };
-                                //room_.new_message(this->ID_, read_buffer_.data(), (uint32_t)read_buffer_.capacity());
-
-                                //if (room_.get_broadcast_messages())
-                                //  room_.deliver_byte(read_buffer_.data(),read_buffer_.capacity());
-
-                                //memset(read_buffer_.data(), 0x00, read_buffer_.capacity());
+                                }
                                 do_read_byte();
                               }
                               else {
@@ -279,6 +238,7 @@ private:
                                                  deque_write_buffer_.front()->capacity()),
                              [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
                                if (!ec) {
+                                 std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
                                  deque_write_buffer_.pop_front();
                                  if (!deque_write_buffer_.empty()) {
                                    do_write_byte();
