@@ -3,6 +3,7 @@
 
 #include "nr_base.hpp"
 #include "room.hpp"
+#include "XRMessage.hpp"
 
 class nr_session : public nr_participant, public std::enable_shared_from_this<nr_session>
 {
@@ -11,22 +12,6 @@ public:
   typedef std::shared_ptr<buffer_type> buffer_type_ptr;
   typedef std::deque<buffer_type_ptr> deque_buffer_type_ptr;
   typedef std::shared_ptr<nr_session> nr_session_ptr;
-
-  /*nr_session(tcp::socket socket,
-             network_room& room,
-             //network_room& hroom,
-             uint64_t service_id,
-             std::string server_name) : socket_(std::move(socket)),
-                                        m_room(room),
-                                        //m_handshake_room(hroom),
-                                        keep_alive(true),
-                                        m_service_id(service_id),
-                                        m_server_name(server_name)
-  {
-    //TODO: start timeout
-    read_buffer_.reserve(64 * 1024);
-    write_buffer_.reserve(64 * 1024);
-    }*/
 
   nr_session(std::shared_ptr<tcp::socket> socket,
              network_room& room,
@@ -155,15 +140,14 @@ private:
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
-                                //size_t cap = read_buffer_.capacity();
                                 // transfer completed
-                                ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
-                                switch(message->head){
+                                //ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
+                                /*switch(message->head){
                                 case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
                                   break;
                                 default:
                                   break;
-                                }
+                                  }*/
                                 do_read_byte();
                               }
                               else {
@@ -266,6 +250,8 @@ protected:
   bool keep_alive;
   uint64_t m_service_id;
   std::string m_server_name;
+
+  std::vector<XRMessage> m_message_queue;
 };// END nr_session
 
 typedef nr_session::nr_session_ptr nr_session_ptr;

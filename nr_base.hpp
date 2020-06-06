@@ -21,6 +21,7 @@
 #include <boost\winapi\basic_types.hpp>
 #endif
 #include <boost/asio/error.hpp>
+#include <boost/crc.hpp>
 #include <condition_variable>
 #include <chrono>
 

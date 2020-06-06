@@ -28,7 +28,7 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             CHAT_MESSAGE,
                                             CONTROL };
 
-struct ST_RAW_MESSAGE
+/*struct ST_RAW_MESSAGE
 {
   EN_RAW_MESSAGE_HEAD head;
   uint32_t buffersize;
@@ -37,14 +37,14 @@ struct ST_RAW_MESSAGE
 
 typedef std::shared_ptr<ST_RAW_MESSAGE> raw_message_ptr;
 
-/*raw_message_ptr build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
+raw_message_ptr build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
 {
   raw_message_ptr rmp(new ST_RAW_MESSAGE);
   rmp->head = (EN_RAW_MESSAGE_HEAD) header;
   rmp->buffersize = buffersize;
   memcpy(rmp->buffer,buffer,buffersize);
   return rmp;
-  }*/
+  }
 
 ST_RAW_MESSAGE build_raw_message(uint16_t header, std::byte *buffer, uint32_t buffersize)
 {
@@ -53,7 +53,7 @@ ST_RAW_MESSAGE build_raw_message(uint16_t header, std::byte *buffer, uint32_t bu
   rm.buffersize = buffersize;
   memcpy(rm.buffer,buffer,buffersize);
   return rm;
-}
+  }*/
 
 // PARTICIPANT_INFO_REQUEST
 

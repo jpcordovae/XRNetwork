@@ -25,8 +25,7 @@ public:
   enum { header_length = sizeof(uint16_t) }; //64bit header
   enum { max_body_length = 64*1024 - sizeof(uint16_t)};
 
-  nr_message()
-    : body_length_(64*1024)
+  nr_message() : body_length_(64*1024)
   {
     memset(data_, 0x00, header_length + max_body_length);
   }
