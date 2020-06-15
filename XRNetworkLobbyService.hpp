@@ -333,6 +333,7 @@ private:
       server->set_keep_alive(b_keep_alive_);
       server->set_max_participants(max_participants_);
       server->set_broadcasting_all_messages(b_auto_broadcast_all_incoming_messages);
+      server->set_service_name(service_name_);
       /*if (PROTOCOL == TCP) {
 	if (PROTOCOL_VERSION == V4) {
 	server = std::shared_ptr<nr_server>(new nr_server(io_context_, tcp_endpoint));

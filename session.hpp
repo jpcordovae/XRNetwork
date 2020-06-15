@@ -140,6 +140,7 @@ private:
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
+                                std::cout << "do_read_byte: " + std::to_string(bytes_transferred) << std::endl;
                                 // transfer completed
                                 //ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
                                 /*switch(message->head){

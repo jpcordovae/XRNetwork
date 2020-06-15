@@ -106,6 +106,7 @@ struct ST_HANDSHAKE_PARTICIPANT_UPDATE_ACK {
 // ST_HANDSHAKE_HELLO
 
 struct ST_HANDSHAKE_HELLO {
+  //uint8_t  endianess; // 1: little endian, 0: big endian
   uint64_t service_id; // id of the server
   uint64_t participant_id; // id asigned by the server
   uint64_t server_timestamp; // timestamp of the server in UTC0
@@ -117,13 +118,26 @@ ST_HANDSHAKE_HELLO build_handshake_hello(uint64_t service_id, uint64_t participa
                                          uint64_t server_timestamp, std::string servername)
 {
   ST_HANDSHAKE_HELLO hello;
+  //hello.endianess = is_system_little_endian();
   hello.service_id = service_id;
   hello.participant_id = participant_id;
   hello.server_timestamp = server_timestamp;
-  hello.servername_buffersize = servername.size();
+  hello.servername_buffersize = (uint32_t)servername.size();
+  memset(hello.servername_buffer,0x00,1024);
   memcpy(hello.servername_buffer,servername.c_str(),servername.size());
   return hello;
 }
+
+std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO &st_hello)
+{
+  os << "service_id            : " << std::hex << st_hello.service_id             << std::endl
+     << "participant_id        : " << std::hex << st_hello.participant_id         << std::endl
+     << "server_timestamp      : " << std::hex << st_hello.server_timestamp       << std::endl
+     << "servername_buffer     : " << std::hex << st_hello.servername_buffer      << std::endl
+     << "servername_buffersize : " << std::hex << st_hello.servername_buffersize;
+  return os;
+}
+
 
 // ST_HANDSHAKE_HELLO_ACK
 
@@ -140,6 +154,16 @@ struct ST_HANDSHAKE_HELLO_ACK
     memset(participant_name_buffer,0x00,1024);
   }
 };
+
+std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO_ACK &st_hello_ack)
+{
+  os << "participant_id              : " << std::hex << st_hello_ack.participant_id              << std::endl
+     << "client_timestamp            : " << std::hex << st_hello_ack.client_timestamp            << std::endl
+     << "participant_name_buffersize : " << std::hex << st_hello_ack.participant_name_buffersize << std::endl
+     << "participant_name_buffer     : " << std::hex << st_hello_ack.participant_name_buffer;
+  return os;
+}
+
 
 enum class EN_SECURITY : int16_t { LOGIN_PASSWORD,
                                    SSL,

@@ -70,6 +70,7 @@ public:
   void set_service_name(std::string service_name_)
   {
     m_service_name = service_name_;
+    std::cout << "service name: " << m_service_name << std::endl;
   }
 
   std::string  get_service_name()

@@ -20,8 +20,10 @@ public:
 
   void start()
   {
-    nr_session::start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    //nr_session::start();
+    IP = m_socket_ptr->remote_endpoint().address().to_string();
+    m_room.join(shared_from_this());
+    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     do_start_handshake();
   }
 
@@ -35,20 +37,16 @@ private:
   void do_start_handshake()
   {
     std::cout << "starting handshake" << std::endl;
-    //auto now_ms = std::chrono::system_clock::now();
-    //auto value = std::chrono::duration_cast<std::chrono::milliseconds>(now_ms.time_since_epoch());
-    //uint64_t timestamp = std::chrono::duration<uint64_t>(value.count());
+    do_read_handshake();
     uint64_t timestamp = get_timestamp_now();
     ST_HANDSHAKE_HELLO hh = build_handshake_hello(m_service_id,m_id,timestamp,m_server_name);
-    //ST_RAW_MESSAGE raw = build_raw_message((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,sizeof(hh));
-    XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,(uint32_t)sizeof(hh));
+    std::cout << "ST_HANDSHAKE_HELLO :" << std::endl << hh << std::endl;
+    XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,(uint32_t) sizeof(ST_HANDSHAKE_HELLO));
     deliver_byte((std::byte*)msg.data(),msg.size());
   }
 
-  void handshake_hello_ack(std::byte *buffer, uint32_t buffersize)
+  void check_handshake_hello_ack(ST_HANDSHAKE_HELLO_ACK *st_hello_ack, uint32_t buffersize)
   {
-    //ST_HANDSHAKE_HELLO_ACK *message = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)buffer);
-    //message->participant_id;
     ST_HANDSHAKE_CREDENTIALS *hc = new ST_HANDSHAKE_CREDENTIALS();
     //hc->server_certificate_buffer;
     //ST_RAW_MESSAGE msg;
@@ -77,28 +75,32 @@ private:
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
-                                /*ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
-                                switch(message->head){
-                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK:
+                                std::cout << "receiving " << std::to_string(bytes_transferred) << std::endl;
+                                XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,true));
+                                xr_message_header *header = message_ptr->get_header();
+                                switch((uint16_t)header->head){
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK):
                                   {
-                                    ST_HANDSHAKE_HELLO_ACK *hha = static_cast<ST_HANDSHAKE_HELLO_ACK*>((void*)message->buffer);
-                                    m_name = std::string((char*)hha->participant_name_buffer);
+                                    std::cout << "HANDSHAKE_HELLO_ACK: " << std::endl;
+                                    ST_HANDSHAKE_HELLO_ACK *st_hello_ack = (ST_HANDSHAKE_HELLO_ACK*)message_ptr->payload();
+                                    check_handshake_hello_ack(st_hello_ack,header->buffersize);
+                                    //m_name = std::string((char*)hha->participant_name_buffer);
                                   }
                                   break;
-                                case EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK:
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK):
                                   {
-                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
-                                    if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
-                                      m_room.leave(shared_from_this());
-                                    }
+                                    //ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
+                                    //if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
+                                    //m_room.leave(shared_from_this());
+                                    //}
                                   }
                                   break;
-                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK:
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK):
                                   //participant_info_request(message->buffer,message->buffersize);
                                   {
                                   }
                                   break;
-                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   //new_participant_info_ack(message->buffer,message->buffersize);
                                   {
                                   }
@@ -106,12 +108,12 @@ private:
                                 default:
                                   //LOG_WARNING("meader message not recognized.");
                                   break;
-                                };*/
+                                };
                                 do_read_handshake();
                               }
                               else{
                                 //check_system_error_code(ec);
-                                std::cout << ec.message() << std::endl;
+                                std::cout << "do_read_handshake: " << ec.message() << std::endl;
                                 m_room.leave(shared_from_this());
                               }
                             });

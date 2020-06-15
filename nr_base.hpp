@@ -2,7 +2,7 @@
 #define NR_BASE_H__
 
 #include <cstdint>
-#include <iostream>
+#include <ostream>
 #include <random>
 #include <cstdlib>
 #include <cstddef>
@@ -31,6 +31,7 @@
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/sources/severity_feature.hpp>
 #include <boost/log/sources/severity_logger.hpp>
+#include <endian.h>
 
 using boost::asio::ip::tcp;
 using boost::asio::ip::udp;
@@ -41,6 +42,25 @@ using boost::asio::ip::udp;
 #define BOOST_LOG_STREAM_WITH_PARAMS
 #endif
 
+//----------------------------------------------------------------------
+
+#if __has_include(<bit>)
+#include <bit>
+#ifdef __cpp_lib_endian
+#define HAS_ENDIAN 1
+#endif
+#endif
+
+//#define IS_BIG_ENDIAN (*(uint16_t*)"\0\xFF" < 0x0100)
+
+//#define IS_LITTLE_ENDIAN (((union { uint16_t u16; uint32_t u32; }) { 0xFFFF0000 }).u16 ) // need optimization to run this on compiler time, seems like -o1 is enough
+
+/*#ifdef HAS_ENDIAN
+constexpr bool is_little_endian = std::endian::native == std::endian::little;
+#else
+constexpr bool is_little_endian = 
+#endif
+*/
 //----------------------------------------------------------------------
 
 #define NR_FAIL -1
@@ -77,6 +97,34 @@ typedef void(*participant_network_event)(uint64_t participant_id, uint32_t event
 uint64_t get_timestamp_now()
 {
   return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+bool is_system_little_endian()
+{
+  const int value { 0x01 };
+  const void * address = static_cast<const void*>(&value);
+  const unsigned char * least_significant_address = static_cast<const unsigned char*>(address);
+  return (*least_significant_address == 0x01);
+}
+
+template<class T> T swap_endian(const T &val)
+{
+  union U {
+    T val;
+    std::array<std::byte, sizeof(T)> raw;
+  } src, dst;
+
+  src.val = val;
+  std::reverse_copy(src.raw.begin(), src.raw.end(), dst.raw.begin());
+  //val = dst.val;
+  return dst.val;
+}
+
+std::vector<std::byte> swap_byte_vector(const std::vector<std::byte> origin)
+{
+  std::vector<std::byte> dst(origin.size(),(std::byte)0x00); // create and  clear the vector
+  std::reverse_copy(origin.begin(),origin.end(),dst.begin());
+  return dst;
 }
 
 /*

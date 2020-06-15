@@ -73,6 +73,7 @@ int main(int argc, char* argv[])
     
   xrnls->set_port(port);
   xrnls->set_socket_no_delay(true);
+  xrnls->set_service_name("JP Service");
   bool broadcast_to_all = false;
   //nr_participant_info *pinfo = new nr_participant_info();
   std::cout << "----------------------" << std::endl;
