@@ -3,6 +3,7 @@
 
 #include "nr_base.hpp"
 
+// network room participant
 class nr_participant
 {
 public:

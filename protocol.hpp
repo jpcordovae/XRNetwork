@@ -17,7 +17,9 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             HANDSHAKE_STATISTICS_REQUEST,
                                             HANDSHAKE_STATISTICS_REQUEST_ACK,
                                             HANDSHAKE_PARTICIPANT_UPDATE,
-                                            HADNSHAKE_PARTICIPANT_UPDATE_ACK,
+                                            HANDSHAKE_PARTICIPANT_UPDATE_ACK,
+                                            PARTICIPANT_NEW,
+                                            PARTICIPANT_NEW_ACK,
                                             PARTICIPANT_INFO_REQUEST,
                                             PARTICIPANT_INFO_REQUEST_ACK,
                                             PARTICIPANT_UPDATE,
@@ -102,7 +104,6 @@ struct ST_HANDSHAKE_PARTICIPANT_UPDATE_ACK {
   uint64_t timestamp;
 };
 
-
 // ST_HANDSHAKE_HELLO
 
 struct ST_HANDSHAKE_HELLO {
@@ -118,7 +119,6 @@ ST_HANDSHAKE_HELLO build_handshake_hello(uint64_t service_id, uint64_t participa
                                          uint64_t server_timestamp, std::string servername)
 {
   ST_HANDSHAKE_HELLO hello;
-  //hello.endianess = is_system_little_endian();
   hello.service_id = service_id;
   hello.participant_id = participant_id;
   hello.server_timestamp = server_timestamp;
@@ -138,14 +138,13 @@ std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO &st_hello)
   return os;
 }
 
-
 // ST_HANDSHAKE_HELLO_ACK
 
 struct ST_HANDSHAKE_HELLO_ACK
 {
   uint64_t participant_id;
   uint64_t client_timestamp;
-  uint32_t participant_name_buffersize;
+  uint16_t participant_name_buffersize;
   std::byte participant_name_buffer[1024];
   ST_HANDSHAKE_HELLO_ACK(): participant_id(0),
                             client_timestamp(0),

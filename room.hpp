@@ -185,6 +185,7 @@ public:
     return max_participant_buffer_size_;
   }
 
+  // signal a new message to the callback
   void new_message(uint64_t participant_id, std::byte* buffer, uint32_t buffer_size)
   {
     /*if (b_buffered_messages_)
@@ -219,6 +220,11 @@ public:
       return nrpi_ptr->is_deaf();
     }
     return false;
+  }
+
+  bool participant_exist(uint64_t participant_id)
+  {
+    return get_participant_ptr(participant_id).get()!=nullptr;
   }
 
   ~network_room()

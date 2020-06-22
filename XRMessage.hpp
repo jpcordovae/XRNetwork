@@ -41,6 +41,20 @@ xr_message_header swap_xr_message_header(const xr_message_header *msg)
   return xrm;
 }
 
+std::ostream &operator<<(std::ostream &os, const xr_message_header header)
+{
+  os << "head                  : " << std::hex << std::setw(2) << header.head       << std::endl
+     << "buffersize            : " << std::hex << std::setw(4) << header.buffersize << std::endl
+     << "payload_is_big_endian : " << std::hex << std::setw(2) << header.payload_is_big_endian;
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const xr_message_header *header_ptr)
+{
+  std::cout <<  "head | buffersieze | is_big_endian \n" << std::hex << header_ptr->head << " | " << std::hex << header_ptr->buffersize << " | " << std::hex << header_ptr->payload_is_big_endian;
+  return os;
+}
+
 class XRMessage : public std::vector<std::byte>
 {
 public:
@@ -52,9 +66,9 @@ public:
     this->resize(sizeof(xr_message_header) + _buffersize);
     memset(data(),0x00,size());
     std::copy(buffer,buffer+_buffersize,this->begin());
-    if(check_endianess && is_system_little_endian()){
+    /*if(check_endianess && is_system_little_endian()){
       this->set_header(swap_xr_message_header(this->get_header()));
-    }
+      }*/
   }
 
   XRMessage(const uint16_t &_head, const std::byte *buffer, const uint32_t &_buffersize)
@@ -66,16 +80,16 @@ public:
 
     this->resize(tsize);
 
-    if(is_system_little_endian()){ // network is big endian
+    //if(is_system_little_endian()){ // network is big endian
       // swap all buffers
-      uint16_t _head2 = swap_endian<uint16_t>(_head);
-      uint32_t _buffersize2 = swap_endian<uint32_t>(_buffersize);
-      xr_message_header header(_head2,_buffersize2);
-      memcpy(this->data(),&header,sizeof(xr_message_header));
-    }else{
+      //uint16_t _head2 = swap_endian<uint16_t>(_head);
+      //uint32_t _buffersize2 = swap_endian<uint32_t>(_buffersize);
+      //xr_message_header header(_head2,_buffersize2);
+      //memcpy(this->data(),&header,sizeof(xr_message_header));
+    //}else{
       xr_message_header header(_head, _buffersize);
       memcpy(this->data(),&header,sizeof(xr_message_header));
-    }
+      // }
 
     /*if(m_base64){
       // TODO: make codes for base64

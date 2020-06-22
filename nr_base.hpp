@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <deque>
 #include <iostream>
+#include <iomanip>
 #include <list>
 #include <memory>
 #include <set>
@@ -65,6 +66,12 @@ constexpr bool is_little_endian =
 
 #define NR_FAIL -1
 #define NR_OK    0
+
+std::ostream &operator<<(std::ostream &os, const std::byte b)
+{
+  os << std::hex << std::setw(2) << (0xFF & (unsigned int)b);
+  return os;
+}
 
 // We define our own severity levels
 enum log_severity_level
@@ -140,5 +147,14 @@ boost::asio::ip::address_v6 v6_from_string(std::string s)
   return addr;
 }
 */
+
+std::ostream &operator<<(std::ostream &os, const std::vector<std::byte> buffer)
+{
+  std::for_each(buffer.begin(),buffer.end(),[&](const std::byte &b){
+                                              os << std::setfill('0') << std::setw(2) <<  std::hex << (unsigned char)b;
+                                            });
+  return os;
+}
+
 
 #endif // NR_BASE_H__

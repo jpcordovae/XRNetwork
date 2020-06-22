@@ -221,6 +221,7 @@ private:
     boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(deque_write_buffer_.front()->data(),
                                                  deque_write_buffer_.front()->capacity()),
+                                                 //deque_write_buffer_.front()->size()),
                              [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
                                if (!ec) {
                                  std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
