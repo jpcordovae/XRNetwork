@@ -75,8 +75,8 @@ public:
   {
     size_t tsize = sizeof(xr_message_header) + _buffersize;
 
-    if(m_b_delimiter)
-      tsize += 1;
+    //if(m_b_delimiter)
+    //  tsize += 1;
 
     this->resize(tsize);
 
@@ -104,8 +104,8 @@ public:
       }*/
     memcpy(this->data()+sizeof(xr_message_header),buffer,_buffersize);
 
-    if(m_b_delimiter)
-      push_back((std::byte)m_delimiter);
+    //if(m_b_delimiter)
+    //  push_back((std::byte)m_delimiter);
   }
 
   uint16_t head()
@@ -122,7 +122,7 @@ public:
   {
     return this->size() >= sizeof(xr_message_header) ? data()+sizeof(xr_message_header) : nullptr;
   }
-  
+
   xr_message_header *get_header()
   {
     return this->size() >= sizeof(xr_message_header) ? (xr_message_header*)data() : nullptr;
@@ -165,6 +165,8 @@ public:
   }
 
 private:
+  uint64_t origin_timestamp;
+  uint64_t deliver_timestamp;
   bool m_b_delimiter; // enable or disable dlimiter use
   bool m_base64; // base64 buffer transform at in and out 
   std::byte m_delimiter;

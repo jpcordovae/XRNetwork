@@ -3,11 +3,11 @@
 
 #include "participant.hpp"
 #include "protocol.hpp"
+#include "XRMessage.hpp"
 
 class network_room
 {
 public:
-
   typedef boost::signals2::signal<void(uint64_t)>::slot_type new_participant_callback_slot_type;
 
   void join(nr_participant_ptr participant)
@@ -24,10 +24,47 @@ public:
     memcpy(participant->info_ptr_->ipv4_ip, participant->IP.c_str(), participant->IP.size());
     participants_.insert(participant);
     signal_new_participant(participant->m_id);
-    // begin handhsake
     /*for (auto msg : recent_msgs_) {
       participant->deliver(msg);
       }*/
+    /*if(auto_update_participants){
+      ST_PARTICIPANT_NEW newp;
+      newp.participant_id = participant->m_id;
+      newp.name_buffersize = participant->m_name.size();
+      memcpy(newp.name_buffer,participant->m_name.c_str(),newp.name_buffersize);
+
+      XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
+                    (std::byte*)&newp,
+                    (uint32_t)sizeof(ST_PARTICIPANT_NEW));
+
+      deliver_to_all(msg.data(),msg.size());
+      }*/
+  }
+
+  void init_new_participant(nr_participant_ptr ptr)
+  {
+    update_players_list(ptr);
+  }
+
+  void update_players_list(nr_participant_ptr ptr) // send list of participants to a new player
+  {
+    std::vector<ST_PARTICIPANT_NEW> id_vector;
+    if(auto_update_participants){
+      for(auto p : participants_) {
+        if( ptr->m_id == p->m_id ) continue;
+        ST_PARTICIPANT_NEW newp;
+        newp.participant_id = p->m_id;
+        newp.name_buffersize = p->m_name.size();
+        memcpy(newp.name_buffer,p->m_name.c_str(),newp.name_buffersize);
+        id_vector.push_back(newp);
+      }
+      for(auto newp : id_vector){
+        XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
+                      (std::byte*)&newp,
+                      (uint32_t)sizeof(ST_PARTICIPANT_NEW));
+        ptr->deliver_byte(msg.data(),msg.size());
+      }
+    }
   }
 
   void disconnect_participant(nr_participant_ptr participant)
@@ -60,26 +97,40 @@ public:
   void deliver_byte(std::byte *buffer, size_t buffersize)
   {
     if (broadcast_participants_messages){
-      for (auto participant : participants_){
-	    participant->deliver_byte(buffer, buffersize);
-	  }
+      deliver_to_all(buffer,buffersize);
     }
   }
 
-  void deliver(const nr_message& msg)
+  void deliver_to_all(std::byte *buffer, size_t buffersize)
   {
+    for (auto participant : participants_){
+      participant->deliver_byte(buffer, buffersize);
+    }
+  }
+
+  //void deliver(const nr_message& msg)
+  //{
     /*
       recent_msgs_.push_back(msg);
       while (recent_msgs_.size() > max_recent_msgs)
       recent_msgs_.pop_front();
     */
 
-    if (broadcast_participants_messages) {
-      //signal_new_message();
-      for (auto participant : participants_) {
-	/*if(!participant->is_deaf())*/ participant->deliver(msg);
-      }
-    }
+    //if (broadcast_participants_messages) {
+  //for (auto participant : participants_) {
+  /*if(!participant->is_deaf())*/ //participant->deliver(msg);
+  //    }
+  //  }
+  // }
+
+  void set_auto_update_participants(bool au)
+  {
+    auto_update_participants = au;
+  }
+
+  bool get_auto_update_participants()
+  {
+    return auto_update_participants;
   }
 
   size_t participants_count()
@@ -159,9 +210,9 @@ public:
       nptr->m_id = nrpi_ptr->info_ptr_->m_id;
       nptr->server_id_ = nrpi_ptr->info_ptr_->server_id_;
       memset(nptr->ipv4_ip, 0x00, 512);
-      memset(nptr->name,0x00,1024);
       memcpy(nptr->ipv4_ip, nrpi_ptr->info_ptr_->ipv4_ip, 512);
-      memcpy(nptr->name, nrpi_ptr->info_ptr_->name,1024);
+      //TODO: check that the string size < 1024
+      memcpy(nptr->name, nrpi_ptr->m_name.c_str(),nrpi_ptr->m_name.size());
     }
   }
 
@@ -273,6 +324,7 @@ private:
   size_t super_message_buffer_size_;
   std::atomic_bool b_prealocate_supper_message_buffer_;
   std::string m_server_name;
+  std::atomic_bool auto_update_participants; // new participnats are updated with the others at them moment they join to the room
 }; // end network_room
 
 typedef network_room::new_participant_callback_slot_type new_participant_callback_slot_type;

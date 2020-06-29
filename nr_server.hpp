@@ -178,6 +178,16 @@ public:
     return room_.get_participant_deaf(participant_id);
   }
 
+  void set_auto_update_participants(bool au)
+  {
+    room_.set_auto_update_participants(au);
+  }
+
+  bool get_auto_update_participants()
+  {
+    return room_.get_auto_update_participants();
+  }
+
 private:
 
   void do_accept()
@@ -194,12 +204,7 @@ private:
 			   {
 			     if (!ec) {
                    std::shared_ptr<tcp::socket> socket_ptr = std::make_shared<tcp::socket>(std::move(socket));
-                   std::make_shared<handshake_session>(socket_ptr, m_handshake_room, m_service_id, m_service_name)->start();
-                   //std::make_shared<handshake_session>(std::move(socket), handshake_room_, m_service_id, m_service_name)->start();
-                   //std::make_shared<handshake_session>(std::move(socket),
-                   //                                    handshake_room_,
-                   //                                    m_service_id,
-                   //                                    m_service_name)->start();
+                   std::make_shared<handshake_session>(socket_ptr, room_, m_service_id, m_service_name)->start();
                    do_accept();
                  }
 			     else {

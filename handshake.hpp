@@ -22,7 +22,7 @@ public:
   {
     //nr_session::start();
     IP = m_socket_ptr->remote_endpoint().address().to_string();
-    m_room.join(shared_from_this());
+    //m_room.join(shared_from_this());
     //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     do_start_handshake();
   }
@@ -46,35 +46,52 @@ private:
     deliver_byte((std::byte*)msg.data(),msg.size());
   }
 
-  void print_buffer(std::byte *buffer, size_t buffersize)
-  {
-    for(size_t i=0;i<buffersize;i++){
-      printf("%02x ",(unsigned int)*(buffer+i));
-    }
-  }
-
   void check_handshake_hello_ack(ST_HANDSHAKE_HELLO_ACK *st_hello_ack, uint32_t buffersize)
   {
-    if(!m_room.participant_exist(st_hello_ack->participant_id)){
+    /*if(!m_room.participant_exist(st_hello_ack->participant_id)){
       //LOG THIS !!!
       this->disconnect();
-    }
+      }*/
 
     ST_HANDSHAKE_CREDENTIALS *hc = new ST_HANDSHAKE_CREDENTIALS();
     //hc->server_certificate_buffer;
-    XRMessage msg = XRMessage((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS,
-                              (std::byte*)hc,
-                              (uint32_t)sizeof(ST_HANDSHAKE_CREDENTIALS));
-    //deliver_byte((std::byte*)&msg,msg.size());
+    XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS,
+                  (std::byte*)hc,
+                  (uint32_t)sizeof(ST_HANDSHAKE_CREDENTIALS));
+    std::cout << "HANDSHAKE_CREDENTIALS" << std::endl;
+    print_buffer(msg.data(),60);
+    std::cout << std::endl;
+    deliver_byte(msg.data(),msg.size());
+    delete hc;
   }
 
-  bool handshake_credentials_ack(std::byte *buffer, uint32_t buffersize)
+  void check_handshake_credentials_ack(ST_HANDSHAKE_CREDENTIALS_ACK *msg)
   {
-    ST_HANDSHAKE_CREDENTIALS_ACK *msg = (ST_HANDSHAKE_CREDENTIALS_ACK*)buffer;
     if(strcmp((char*)msg->login_buffer,"login")!=0 || strcmp((char*)msg->password_buffer,"password")!=0) {
-      return false;
+      disconnect();
     }
-    return true;
+    // send pariticpant_join
+    std::string welcome_message = "accepted in room";
+    m_room.join(shared_from_this());
+    ST_PARTICIPANT_JOIN join_ptr;
+    join_ptr.participant_id = m_id;
+    join_ptr.max_data_rate = 1; // transactions per second
+    join_ptr.allow_asynchronous_messages = 0xFFFF;
+    join_ptr.message_buffersize = welcome_message.size();
+    memcpy(join_ptr.message_buffer,
+           welcome_message.c_str(),
+           join_ptr.message_buffersize);
+
+    m_room.init_new_participant(shared_from_this());
+    do_read_byte();
+
+    std::cout << "PARTICIPANT_JOIN" << std::endl;
+    std::cout << join_ptr << std::endl;
+    XRMessage xrmsg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN,
+                    (std::byte*)&join_ptr,
+                    (uint32_t)sizeof(ST_PARTICIPANT_JOIN));
+
+    deliver_byte(xrmsg.data(),xrmsg.size());
   }
 
   void do_read_handshake()
@@ -87,31 +104,27 @@ private:
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
 
-                                std::cout << "receiving " << std::to_string(bytes_transferred) << std::endl;
+                                std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << std::endl;
                                 XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
                                 xr_message_header *header = message_ptr->get_header();
-
-                                /*std::cout << "header inspection" << std::endl
-                                          << "-----------------" << std::endl
-                                          << header << std::endl;*/
-
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK):
                                   {
                                     std::cout << "HANDSHAKE_HELLO_ACK: " << std::endl;
                                     ST_HANDSHAKE_HELLO_ACK *st_hello_ack = (ST_HANDSHAKE_HELLO_ACK*)message_ptr->payload();
                                     print_buffer(read_buffer_.data(),60);
-                                    std::cout << std::endl;
-                                    std::cout << *st_hello_ack << std::endl;
+                                    std::cout << std::endl << *st_hello_ack << std::endl;
                                     check_handshake_hello_ack(st_hello_ack,header->buffersize);
                                   }
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK):
                                   {
-                                    //ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message->buffer);
-                                    //if(strcmp((char*)msg->login_buffer,"login") != 0 || strcmp((char*)msg->password_buffer,"password") != 0) {
-                                    //m_room.leave(shared_from_this());
-                                    //}
+                                    std::cout << "HANDSHAKE_CREDENTIALS_ACK" << std::endl;
+                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message_ptr->payload());
+                                    print_buffer(read_buffer_.data(),60);
+                                    std::cout << std::endl << *msg << std::endl;
+                                    check_handshake_credentials_ack(msg);
+                                    return;
                                   }
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK):
@@ -133,7 +146,8 @@ private:
                               else{
                                 //check_system_error_code(ec);
                                 std::cout << "do_read_handshake: " << ec.message() << std::endl;
-                                m_room.leave(shared_from_this());
+                                //m_room.leave(shared_from_this());
+                                disconnect();
                               }
                             });
   }

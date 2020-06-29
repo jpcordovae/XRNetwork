@@ -1,5 +1,5 @@
 CPPFLAGS=-gdwarf -Wall -pedantic -std=c++17 -DBOOST_LOG_DYN_LINK
-LIBS = -lpthread -lboost_log -lboost_log_setup -Wno-reorder
+LIBS = -lpthread -lboost_log -lboost_log_setup -Wno-reorder -Wno-memset-elt-size
 
 #TARGET = nr_service
 

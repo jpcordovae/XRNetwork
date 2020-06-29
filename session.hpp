@@ -15,11 +15,9 @@ public:
 
   nr_session(std::shared_ptr<tcp::socket> socket,
              network_room& room,
-             //network_room& hroom,
              const uint64_t &service_id,
              const std::string &server_name) : m_socket_ptr(std::move(socket)),
                                                m_room(room),
-                                               //m_handshake_room(hroom),
                                                keep_alive(true),
                                                m_service_id(service_id),
                                                m_server_name(server_name)
@@ -41,14 +39,14 @@ public:
     do_read_byte();
   }
 
-  void deliver(const nr_message& msg)
+  /*void deliver(const nr_message& msg)
   {
     bool write_in_progress = !write_msgs_.empty();
     write_msgs_.push_back(msg);
     if (!write_in_progress) {
       do_write();
     }
-  }
+    }*/
 
   void deliver_byte(std::byte* buffer, size_t buffersize)
   {
@@ -90,7 +88,6 @@ public:
   int set_keep_alive(bool keep_alive)
   {
     boost::asio::socket_base::keep_alive o(keep_alive);
-    //socket_.set_option(boost::asio::socket_base::keep_alive(o));
     m_socket_ptr->set_option(boost::asio::socket_base::keep_alive(o));
     return NR_OK;
   }
@@ -98,10 +95,49 @@ public:
   bool get_keep_alive()
   {
     boost::asio::socket_base::keep_alive o;
-    //socket_.get_option(o);
     m_socket_ptr->get_option(o);
     return o.value();
   }
+
+protected:
+  void do_read_byte()
+  {
+    auto self(shared_from_this());
+    boost::asio::async_read(*m_socket_ptr,
+                            boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
+                            [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
+                              if (!ec) {
+                                std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << " bytes" << std::endl;
+                                XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
+                                xr_message_header *header = message_ptr->get_header();
+                                print_buffer(read_buffer_.data(),60);
+                                std::cout << *header << std::endl;
+                                std::cout << std::endl;
+                                switch((uint16_t)header->head){
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK):
+                                  break;
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW_ACK):
+                                  break;
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
+                                  {
+                                    std::cout << std::endl << "PARTICIPANT_UPDATE_ACK" << std::endl;
+                                    ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
+                                    //print_buffer(read_buffer_.data(),60);
+                                    std::cout << std::endl << *upd << std::endl;
+                                  }
+                                  break;
+                                default:
+                                  disconnect();
+                                  break;
+                                }
+                                do_read_byte();
+                              }
+                              else {
+                                m_room.leave(shared_from_this());
+                              }
+                            });
+  }
+
 
 private:
 
@@ -132,36 +168,10 @@ private:
     }
   }
 
-  void do_read_byte()
-  {
-    auto self(shared_from_this());
-    //boost::asio::async_read(socket_,
-    boost::asio::async_read(*m_socket_ptr,
-                            boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
-                            [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
-                              if (!ec) {
-                                std::cout << "do_read_byte: " + std::to_string(bytes_transferred) << std::endl;
-                                // transfer completed
-                                //ST_RAW_MESSAGE *message = static_cast<ST_RAW_MESSAGE*>((void*)read_buffer_.data());
-                                /*switch(message->head){
-                                case EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK:
-                                  break;
-                                default:
-                                  break;
-                                  }*/
-                                do_read_byte();
-                              }
-                              else {
-                                m_room.leave(shared_from_this());
-                              }
-                            });
-  }
-
-  void do_read_header()
+  /*void do_read_header()
   {
     // decoding header
     auto self(shared_from_this());
-    //boost::asio::async_read(socket_,
     boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.data(), nr_message::header_length),
                             [this, self](boost::system::error_code ec, std::size_t ){
@@ -178,7 +188,6 @@ private:
   void do_read_body()
   {
     auto self(shared_from_this());
-    //boost::asio::async_read(socket_,
     boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_msg_.body(), read_msg_.body_length()),
                             [this, self](boost::system::error_code ec, std::size_t ) {
@@ -192,32 +201,11 @@ private:
                                 m_room.leave(shared_from_this());
                               }
                             });
-  }
-
-  void do_write()
-  {
-    auto self(shared_from_this());
-    //boost::asio::async_write(socket_,
-    boost::asio::async_write(*m_socket_ptr,
-                             boost::asio::buffer(write_msgs_.front().data(),write_msgs_.front().length()),
-                             [this, self](boost::system::error_code ec, std::size_t /*length*/) {
-                               if (!ec) {
-                                 write_msgs_.pop_front();
-                                 if (!write_msgs_.empty()) {
-                                   do_write();
-                                 }
-                               }
-                               else {
-                                 std::cout << "nr_session:do_write error" << std::endl;
-                                 m_room.leave(shared_from_this());
-                               }
-                             });
-  }
+  }*/
 
   void do_write_byte()
   {
     auto self(shared_from_this());
-    //boost::asio::async_write(socket_,
     boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(deque_write_buffer_.front()->data(),
                                                  deque_write_buffer_.front()->capacity()),

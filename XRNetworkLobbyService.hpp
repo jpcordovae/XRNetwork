@@ -308,13 +308,27 @@ public:
     return NR_OK;
   }
 
+  int set_auto_update_participants(const bool au)
+  {
+    if(!b_thread_running_) return NR_FAIL;
+    server->set_auto_update_participants(au);
+    return NR_OK;
+  }
+
+  int get_auto_update_participants(bool &au)
+  {
+    if(!b_thread_running_) return NR_FAIL;
+    au = server->get_auto_update_participants();
+    return NR_OK;
+  }
+
   /*int get_participant_info(uint64_t participant_id, nr_participant_info *info)
   {
     if(!b_thread_running_) return NR_FAIL;
     server->get_participant_info(participant_id,info);
     return NR_OK;
     }*/
-  
+
 private:
 
   void thread_function()

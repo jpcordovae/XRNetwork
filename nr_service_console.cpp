@@ -50,6 +50,7 @@ void OnServiceStarted()
     xrnls->register_callback_participant_leave(OnParticipantLeave);
     xrnls->set_max_participants(100);
     xrnls->set_max_handshake_connections(100);
+    xrnls->set_auto_update_participants(true);
     b_instantiated = true;
   }
 }

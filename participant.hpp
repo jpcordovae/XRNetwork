@@ -16,8 +16,8 @@ public:
   // for performance just copy the whole structure to some managed memory space
 #pragma pack(1)
   struct nr_participant_info {
-    char name[1024];
     char ipv4_ip[512];
+    char name[1024];
     uint64_t m_id;
     uint64_t server_id_;
 
@@ -82,7 +82,7 @@ public:
   }
 
   virtual ~nr_participant() {};
-  virtual void deliver(const nr_message& msg) = 0;
+  //virtual void deliver(const nr_message& msg) = 0;
   virtual void deliver_byte(std::byte *buffer, size_t buffer_size) = 0;
   virtual void disconnect()=0; // clean drop
   virtual int set_keep_alive(bool) {
@@ -92,7 +92,7 @@ public:
   bool is_deaf() { return deaf_; }
   void set_deaf(bool deaf) { deaf_ = deaf; }
   nr_participant_info_ptr get_participant_info() { return info_ptr_; }
-  std::string name;
+  //std::string name;
   std::string m_name;
   std::string IP;
   //std::deque<nr_message> messages_deque; // in case you want to inspect the messages
