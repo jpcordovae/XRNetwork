@@ -10,6 +10,11 @@ class network_room
 public:
   typedef boost::signals2::signal<void(uint64_t)>::slot_type new_participant_callback_slot_type;
 
+  network_room()
+  {
+    signal_new_participant.connect(boost::bind(&network_room::on_new_participant_room,this,_1));
+  }
+
   void join(nr_participant_ptr participant)
   {
     if (participants_.size() >= max_participants_) {
@@ -27,7 +32,7 @@ public:
     /*for (auto msg : recent_msgs_) {
       participant->deliver(msg);
       }*/
-    /*if(auto_update_participants){
+    if(auto_update_participants){
       ST_PARTICIPANT_NEW newp;
       newp.participant_id = participant->m_id;
       newp.name_buffersize = participant->m_name.size();
@@ -37,8 +42,15 @@ public:
                     (std::byte*)&newp,
                     (uint32_t)sizeof(ST_PARTICIPANT_NEW));
 
-      deliver_to_all(msg.data(),msg.size());
-      }*/
+      std::cout << "PARTICIPANT_NEW" << std::endl;
+      print_buffer(msg.data(),60);
+      std::cout << std::endl;
+      //deliver_to_all(msg.data(),msg.size());
+    }
+  }
+
+  void on_new_participant_room(uint64_t np)
+  {
   }
 
   void init_new_participant(nr_participant_ptr ptr)
