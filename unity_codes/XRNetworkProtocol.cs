@@ -20,6 +20,17 @@ public class XRNetworkProtocol
         HANDSHAKE_STATISTICS_REQUEST_ACK,
         HANDSHAKE_PARTICIPANT_UPDATE,
         HANDSHAKE_PARTICIPANT_UPDATE_ACK,
+<<<<<<< HEAD
+=======
+        PARTICIPANT_JOIN,
+        PARTICIPANT_JOIN_ACK,
+        MESSAGE,
+        MESSAGE_ACK,
+        PARTICIPANT_NEW,
+        PARTICIPANT_NEW_ACK,
+        PARTICIPANT_DELETE,
+        PARTICIPANT_DELETE_ACK,
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         PARTICIPANT_INFO_REQUEST,
         PARTICIPANT_INFO_REQUEST_ACK,
         PARTICIPANT_UPDATE,
@@ -45,18 +56,49 @@ public class XRNetworkProtocol
     public struct ST_RAW_MESSAGE
     {
         public ST_XR_MESSAGE_HEADER header;
+<<<<<<< HEAD
         public byte[] buffer;
     }
 
     ST_RAW_MESSAGE build_raw_message(EN_RAW_MESSAGE_HEAD header, byte[] buffer, UInt32 buffersize)
+=======
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024*64 - 8)] public byte[] buffer;
+    }
+
+    /*ST_RAW_MESSAGE build_raw_message(EN_RAW_MESSAGE_HEAD header, byte[] buffer, UInt32 buffersize)
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     {
         ST_RAW_MESSAGE msg = new ST_RAW_MESSAGE();
         msg.header.head = (UInt16) header;
         msg.header.buffersize = buffersize;
         Buffer.BlockCopy(buffer, 0, msg.buffer, 0, (int)buffersize);
         return msg;
+<<<<<<< HEAD
     }
 
+=======
+    }*/
+
+    /// <sumary>
+    /// PARTICIPANT_JOIN
+    /// </sumary>
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public struct ST_PARTICIPANT_JOIN
+    {
+        public UInt64 participant_id;
+        public UInt16 max_data_rate; // max message frequency [messages/s] supported by the service
+        public UInt16 allow_asynchronous_messages; // polling or interrupt data
+        public UInt16 message_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 10)] public byte[] message_buffer;
+    }
+
+    /// <sumary>
+    /// PARTICIPANT_JOIN_ACK
+    /// </sumary>
+
+
+
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     /// <summary>
     /// HADNSHAKE HELLO
     /// </summary>
@@ -72,14 +114,22 @@ public class XRNetworkProtocol
     };
 
     /// <summary>
+<<<<<<< HEAD
     /// HADNSHAKE HELLO ACK
+=======
+    /// HADNSHAKE HELLO ACK (1042 bytes - 0x0412 hexa)
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     /// </summary>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ST_HANDSHAKE_HELLO_ACK
     {
         public UInt64 participant_id;
         public UInt64 client_timestamp;
+<<<<<<< HEAD
         public UInt32 participant_name_buffersize;
+=======
+        public UInt16 participant_name_buffersize;
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] participant_name;
     };
 
@@ -100,12 +150,21 @@ public class XRNetworkProtocol
     public struct ST_HANDSHAKE_CREDENTIALS_ACK
     {
         public UInt64 participant_id;
+<<<<<<< HEAD
         public UInt32 login_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] login_buffer;
         public UInt32 password_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] password_buffer;
         public UInt32 participant_certificate_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] participant_certificate_buffer;
+=======
+        public UInt16 login_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] login_buffer;
+        public UInt16 password_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] password_buffer;
+        public UInt16 participant_certificate_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024*20)] public byte[] participant_certificate_buffer;
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     };
 
     /// <summary>
@@ -115,8 +174,16 @@ public class XRNetworkProtocol
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ST_PARTICIPANT_UPDATE
     {
+<<<<<<< HEAD
         public UInt64 dt_ms;
         public UInt16 bool_automatic_update;
+=======
+        public UInt64 participant_id;
+        public UInt64 reception_timestamp;
+        public UInt64 deliver_timestamp;
+        public UInt16 buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] buffer;
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     };
 
     /// <summary>
@@ -126,7 +193,11 @@ public class XRNetworkProtocol
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct ST_PARTICIPANT_UPDATE_ACK
     {
+<<<<<<< HEAD
         public UInt64 timestamp;
+=======
+        public UInt64 origin_timestamp;
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     };
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -191,6 +262,36 @@ public class XRNetworkProtocol
         return obj;
     }
 
+<<<<<<< HEAD
+=======
+    public static byte[] GetBytes<T>(T str, int size)
+    {
+        //int size = Marshal.SizeOf(str);
+        if (size == 0) Console.WriteLine("PROBLEMA AQUI !!!!");
+        byte[] arr = new byte[size];
+        GCHandle h = default(GCHandle);
+        try
+        {
+            h = GCHandle.Alloc(arr, GCHandleType.Pinned);
+            Marshal.StructureToPtr<T>(str, h.AddrOfPinnedObject(), false);
+        }
+        finally
+        {
+            if (h.IsAllocated)
+            {
+                h.Free();
+            }
+        }
+        return arr;
+    }
+
+    public static byte[] GetBytes<T>(T str)
+    {
+        int size = Marshal.SizeOf(str);
+        return GetBytes<T>(str,size);
+    }
+
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     public static T ByteArrayToStructure<T>(byte[] bytes) where T : struct 
     {
         var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
@@ -204,7 +305,11 @@ public class XRNetworkProtocol
         int size = Marshal.SizeOf(strc);
         byte[] arr = new byte[size];
         IntPtr ptr = Marshal.AllocHGlobal(size);
+<<<<<<< HEAD
         Marshal.StructureToPtr(strc, ptr, true);
+=======
+        Marshal.StructureToPtr(strc, ptr, false);
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         Marshal.Copy(ptr, arr, 0, size);
         Marshal.FreeHGlobal(ptr);
         return arr;
@@ -215,12 +320,29 @@ public class XRNetworkProtocol
         int size = object_size;
         byte[] arr = new byte[size];
         IntPtr ptr = Marshal.AllocHGlobal(size);
+<<<<<<< HEAD
         Marshal.StructureToPtr(strc, ptr, true);
+=======
+        Marshal.StructureToPtr(strc, ptr, false);
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         Marshal.Copy(ptr, arr, 0, size);
         Marshal.FreeHGlobal(ptr);
         return arr;
     }
 
+<<<<<<< HEAD
+=======
+    public static byte[] ConcatByteArrays(byte[] arr1, byte[] arr2)
+    {
+        int lenght = arr1.Length + arr2.Length;
+        if (lenght == 0) return Array.Empty<byte>();
+        byte[] tmp = new byte[lenght];
+        Array.Copy(arr1, tmp, arr1.Length);
+        Array.Copy(arr2, 0, tmp, arr1.Length, arr2.Length);
+        return tmp;
+    }
+
+>>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     /*object ByteArrayToStructure(byte[] bytearray, object structureObj, int position)
     {
         int length = Marshal.SizeOf(structureObj);

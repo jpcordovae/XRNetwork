@@ -22,20 +22,15 @@ public class XRAsyncTCPClient
     private Socket m_client = null;
     private int m_port;
     public int port { get { return m_port; } set { m_port = value; } }
-
     private static string m_host;
     public string host { get { return m_host; } set { m_host = value; } }
-
-    private bool m_IsConnected;
-    public bool IsConnected { get { return m_IsConnected; } set { } }
-
+    public bool IsConnected { get { return m_client.Connected; } set { } }
+    
     // BUFFERS
     private static int m_txBufferSize = 1024 * 64; // 64kb
     private byte[] m_txBuffer = new byte[m_txBufferSize];
     private static int m_rxBufferSize = 1024 * 64; // 64kb 
-    private byte[] m_rxBuffer = new byte[m_rxBufferSize];
-    //private byte[] m_tmp_rx_buffer = new byte[m_rxBufferSize];
-    //private int rx_tmp_index = 0;
+    private byte[] m_rxBuffer = Array.Empty<byte>();
 
     //CALLBACKS
     public delegate void OnConnectCallbackDelegate();
@@ -52,9 +47,51 @@ public class XRAsyncTCPClient
 
     private ConcurrentDictionary<int, byte[]> ByteContainer;
     private static StateObject state = new StateObject();
-
+    // send
+    private Thread ThreadSendMessages;
+    public ConcurrentQueue<byte[]> m_concurrent_send_message_queue = new ConcurrentQueue<byte[]>();
+    private static ManualResetEvent m_send_message_event = new ManualResetEvent(false);
+    private int m_send_dt = 100; // in milliseconds
     public XRAsyncTCPClient()
     {
+            
+    }
+
+    public void StartSendingThread()
+    {
+        ThreadSendMessages = new Thread(SendMessagesThreaded);
+    }
+
+    public void StopSendingThread()
+    {
+        if (ThreadSendMessages.IsAlive)
+        {
+            ThreadSendMessages.Abort();
+        }
+    }
+
+    public void QueueMessage(byte[] buffer)
+    {
+        m_concurrent_send_message_queue.Enqueue(buffer);
+        m_send_message_event.Set();
+    }
+
+    private void SendMessagesThreaded()
+    {
+       /* while(true)
+        {
+            m_send_message_event.WaitOne();
+            m_send_message_event.Reset();
+            while (!m_concurrent_send_message_queue.IsEmpty)
+            {
+                byte[] message;
+                if (m_concurrent_send_message_queue.TryDequeue(out message))
+                {
+                    AsyncSend(message, message.Length);
+                }
+            }
+            //Thread.Sleep(m_send_dt);
+        }*/
     }
 
     public void RegisterCallbackOnConnect(OnConnectCallbackDelegate oc)
@@ -145,12 +182,16 @@ public class XRAsyncTCPClient
             StateObject so = (StateObject)ar.AsyncState;
             Socket snd_socket = so.workSocket;
             int bytesSent = snd_socket.EndSend(ar);
-            
+
 #if UNITY_EDITOR
-            Debug.Log(bytesSent.ToString() + " bytes sended ");
+            //Debug.Log(bytesSent.ToString() + " bytes sended ");
 #endif
             //sendDone.Set();
             oscd();
+        }
+        catch (SocketException e) 
+        {
+            oecd("asyncSendCallback (SE):" + e.Message);
         }
         catch (Exception e)
         {
@@ -168,6 +209,7 @@ public class XRAsyncTCPClient
         }
         try
         {
+            Debug.Log(string.Format("AsyncSend {0} bytes:\n",buffer_size) + BitConverter.ToString(message));
             Array.Clear(state.tx_buffer, 0, state.tx_buffer.Length);
             Buffer.BlockCopy(message, 0, state.tx_buffer, 0, buffer_size);
             m_client.BeginSend( state.tx_buffer, 
@@ -189,31 +231,42 @@ public class XRAsyncTCPClient
     {
         try
         {
-            //StateObject state = (StateObject)ar.AsyncState;
+            StateObject state = (StateObject)ar.AsyncState;
             Socket client = state.workSocket;
             int bytesRead = client.EndReceive(ar);
-            //Debug.Log(string.Format("receiving {0} bytes.", bytesRead));
+            //Debug.Log(string.Format("asyncReceiveCallback {0} bytes\nbuffer: {1}", bytesRead,BitConverter.ToString(state.buffer)));
+            
             if (bytesRead > 0)
             {
-                byte[] tmp = SplitByteArray(state.buffer, bytesRead); 
-                m_rxBuffer = tmp;
+                byte[] tmp = SplitByteArray(state.buffer, 0, bytesRead); 
+                m_rxBuffer = XRNetworkProtocol.ConcatByteArrays(m_rxBuffer,tmp);
+                Array.Clear(state.buffer, 0, StateObject.BufferSize);
                 
             }
 
             if (bytesRead == 0 || client.Available == 0)
             {
-                orcd(m_rxBuffer, m_rxBuffer.Length);
-                //m_rxBuffer = new byte[StateObject.BufferSize];
-                state.buffer = new byte[StateObject.BufferSize];
+                //byte[] new_byte = new byte[m_rxBuffer.Length];
+                //Array.Copy(m_rxBuffer,new_byte,m_rxBuffer.Length);
+                //orcd(new_byte, new_byte.Length);
+                //Debug.Log(string.Format("asyncReceiveCallback {0} bytes\nbuffer: {1}", bytesRead, BitConverter.ToString(m_rxBuffer)));
+                orcd(m_rxBuffer,m_rxBuffer.Length);
+                Array.Clear(state.buffer, 0, StateObject.BufferSize);
+                m_rxBuffer = Array.Empty<byte>();
             }
 
+            //Array.Clear(state.buffer, 0, StateObject.BufferSize); // DELETE THIS IF MAKE TROUBLES
             client.BeginReceive(state.buffer,//m_rxBuffer, 
                     0,
                     StateObject.BufferSize,//m_rxBufferSize, 
-                    SocketFlags.DontRoute,
+                    0,
                     new AsyncCallback(asyncReceiveCallback),
                     state);
 
+        }
+        catch (ObjectDisposedException) // can occur when closing
+        {
+            // ignore
         }
         catch (SocketException e)
         {
@@ -229,26 +282,35 @@ public class XRAsyncTCPClient
 
     public void AsyncReceive()
     {
-        state.buffer = new byte[StateObject.BufferSize];
-        m_client.BeginReceive(state.buffer, 0, state.buffer.Length, 0, new AsyncCallback(asyncReceiveCallback), state);
+        //state.buffer = new byte[StateObject.BufferSize];
+        Array.Clear(state.buffer, 0, StateObject.BufferSize);
+        m_client.BeginReceive(  state.buffer, 
+                                0, 
+                                state.buffer.Length,
+                                0, 
+                                new AsyncCallback(asyncReceiveCallback), 
+                                state);
     }
 
     // DISCONNECT
 
     public void Disconnect()
     {
+        //StopSendingThread();
         if (m_client != null) { 
             m_client.Shutdown(SocketShutdown.Both);
             m_client.Close();
+            //m_client.Dispose();
+            //m_client = null;
         }
         odcd();
     }
 
     // UTILS
-    public static byte[] SplitByteArray(byte[] buffer, int count)
+    public static byte[] SplitByteArray(byte[] buffer, int index, int count)
     {
         byte[] ret = new byte[count];
-        Buffer.BlockCopy(buffer, 0, ret, 0, count);
+        Buffer.BlockCopy(buffer, index, ret, 0, count);
         return ret;
     }
 
