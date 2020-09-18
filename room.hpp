@@ -32,9 +32,13 @@ public:
     /*for (auto msg : recent_msgs_) {
       participant->deliver(msg);
       }*/
-    if(auto_update_participants){
+  }
+
+  void on_new_participant_room(uint64_t np)
+  {
+    /*if(auto_update_participants){
       ST_PARTICIPANT_NEW newp;
-      newp.participant_id = participant->m_id;
+      newp.participant_id = np;
       newp.name_buffersize = participant->m_name.size();
       memcpy(newp.name_buffer,participant->m_name.c_str(),newp.name_buffersize);
 
@@ -46,19 +50,15 @@ public:
       print_buffer(msg.data(),60);
       std::cout << std::endl;
       //deliver_to_all(msg.data(),msg.size());
-    }
-  }
-
-  void on_new_participant_room(uint64_t np)
-  {
+      }*/
   }
 
   void init_new_participant(nr_participant_ptr ptr)
   {
-    update_players_list(ptr);
+    send_list_of_players(ptr);
   }
 
-  void update_players_list(nr_participant_ptr ptr) // send list of participants to a new player
+  void send_list_of_players(nr_participant_ptr ptr) // send list of participants to a new player
   {
     std::vector<ST_PARTICIPANT_NEW> id_vector;
     if(auto_update_participants){
@@ -259,7 +259,8 @@ public:
       }
       else
       {*/
-    //TODO: this must be changed for a post in asio, if the programmer make a large function in the callback the performance will be screw
+    //TODO: this must be changed for a post in asio, if the programmer make a large function in the callback
+    //      the performance will be screw
     new_messages_buffer_mutex.lock();
     signal_new_message(participant_id, (char*)buffer, buffer_size);
     new_messages_buffer_mutex.unlock();
