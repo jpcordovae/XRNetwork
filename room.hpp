@@ -8,11 +8,28 @@
 class network_room
 {
 public:
+  // SIGNALS
+  typedef boost::signals2::signal<void(uint64_t)> signal_on_new_participant;
+  signal_on_new_participant signal_new_participant;
+  //boost::signals2::signal<void(uint64_t)> signal_new_participant;
+  boost::signals2::signal<void(uint64_t,char*,uint32_t)> signal_message_broadcast_message;
+  boost::signals2::signal<void(uint64_t,char*,uint32_t)> signal_new_message;
+  boost::signals2::signal<void(uint64_t)> signal_participant_leave;
+
+  //boost::signals2::signal<void(uint64_t)> signal_new_participant;
   typedef boost::signals2::signal<void(uint64_t)>::slot_type new_participant_callback_slot_type;
 
+  boost::signals2::connection connect_on_new_participant(const signal_on_new_participant::slot_type &subscriber)
+  {
+    return signal_new_participant.connect(subscriber); 
+  }
+  
   network_room()
   {
-    signal_new_participant.connect(boost::bind(&network_room::on_new_participant_room,this,_1));
+    //connect_on_new_participant(std::bind(&network_room::on_new_participant_room,this,std::placeholders::_1));
+    //register_callback_new_participant(this->on_new_participant_room);
+    //signal_new_participant.connect(boost::bind(&network_room::on_new_participant_room,this,_1));
+    //signal_new_participant.connect(&this->on_new_participant_room);
   }
 
   void join(nr_participant_ptr participant)
@@ -25,58 +42,70 @@ public:
     participant->m_id = rng();
     participant->set_keep_alive(keep_alive_);
     participant->info_ptr_ = nr_participant_info_ptr(new nr_participant_info());
-    participant->info_ptr_->m_id = participant->m_id;
+    participant->info_ptr_->m_id.store(participant->m_id);
     memcpy(participant->info_ptr_->ipv4_ip, participant->IP.c_str(), participant->IP.size());
     participants_.insert(participant);
     signal_new_participant(participant->m_id);
+    //init_new_participant(participant_m_id);
+    //send_list_of_players(participant->m_id);
     /*for (auto msg : recent_msgs_) {
       participant->deliver(msg);
       }*/
   }
 
-  void on_new_participant_room(uint64_t np)
+  void on_new_participant_room(const uint64_t np)
   {
-    /*if(auto_update_participants){
-      ST_PARTICIPANT_NEW newp;
-      newp.participant_id = np;
-      newp.name_buffersize = participant->m_name.size();
-      memcpy(newp.name_buffer,participant->m_name.c_str(),newp.name_buffersize);
-
-      XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
-                    (std::byte*)&newp,
-                    (uint32_t)sizeof(ST_PARTICIPANT_NEW));
-
-      std::cout << "PARTICIPANT_NEW" << std::endl;
-      print_buffer(msg.data(),60);
-      std::cout << std::endl;
-      //deliver_to_all(msg.data(),msg.size());
-      }*/
+  }
+  
+  void init_new_participant(uint64_t participant_id)
+  {
+    // this should be on "on_new_participant_room" function
+    send_list_of_players(get_participant_ptr(participant_id));
+    new_paticipant_to_all(participant_id);
   }
 
-  void init_new_participant(nr_participant_ptr ptr)
+  /*warn to all about a new participant in the room*/
+  void new_paticipant_to_all(uint64_t np)
   {
-    send_list_of_players(ptr);
+    nr_participant_ptr nptr = get_participant_ptr(np);
+    //if(auto_update_participants){
+    ST_PARTICIPANT_NEW newp;
+    newp.participant_id = np;
+    newp.name_buffersize = nptr->m_name.size();
+    memcpy(newp.name_buffer,nptr->m_name.c_str(),newp.name_buffersize);
+    
+    XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
+		  (std::byte*)&newp,
+		  (uint32_t)sizeof(ST_PARTICIPANT_NEW));
+    
+    //std::cout << "PARTICIPANT_NEW" << std::endl;
+    //print_buffer(msg.data(),60);
+    //std::cout << std::endl;
+    deliver_to_all(msg.data(),msg.size());
+    //}
   }
-
+  
   void send_list_of_players(nr_participant_ptr ptr) // send list of participants to a new player
   {
     std::vector<ST_PARTICIPANT_NEW> id_vector;
-    if(auto_update_participants){
-      for(auto p : participants_) {
-        if( ptr->m_id == p->m_id ) continue;
-        ST_PARTICIPANT_NEW newp;
-        newp.participant_id = p->m_id;
-        newp.name_buffersize = p->m_name.size();
-        memcpy(newp.name_buffer,p->m_name.c_str(),newp.name_buffersize);
-        id_vector.push_back(newp);
-      }
-      for(auto newp : id_vector){
-        XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
-                      (std::byte*)&newp,
-                      (uint32_t)sizeof(ST_PARTICIPANT_NEW));
-        ptr->deliver_byte(msg.data(),msg.size());
-      }
+    //if(auto_update_participants){
+    ST_PARTICIPANT_NEW newp; // temporal variable
+    for(auto p : participants_) {
+      if( ptr->m_id == p->m_id ) continue;
+      newp.participant_id = p->m_id;
+      newp.name_buffersize = p->m_name.size();
+      memcpy(newp.name_buffer,p->m_name.c_str(),newp.name_buffersize);
+      id_vector.push_back(newp);
     }
+    
+    for(auto newp : id_vector){
+      XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
+		    (std::byte*)&newp,
+		    (uint32_t)sizeof(ST_PARTICIPANT_NEW));
+      ptr->deliver_byte(msg.data(),msg.size());
+    }
+    
+    //}
   }
 
   void disconnect_participant(nr_participant_ptr participant)
@@ -119,7 +148,7 @@ public:
       participant->deliver_byte(buffer, buffersize);
     }
   }
-
+  
   //void deliver(const nr_message& msg)
   //{
     /*
@@ -219,8 +248,8 @@ public:
     // TODO: make participants_ thread safe
     nr_participant_ptr nrpi_ptr = get_participant_ptr(participant_id);
     if ( nrpi_ptr != nullptr) {
-      nptr->m_id = nrpi_ptr->info_ptr_->m_id;
-      nptr->server_id_ = nrpi_ptr->info_ptr_->server_id_;
+      nptr->m_id.store(nrpi_ptr->info_ptr_->m_id);
+      nptr->server_id_.store(nrpi_ptr->info_ptr_->server_id_.load());
       memset(nptr->ipv4_ip, 0x00, 512);
       memcpy(nptr->ipv4_ip, nrpi_ptr->info_ptr_->ipv4_ip, 512);
       //TODO: check that the string size < 1024
@@ -313,10 +342,6 @@ private:
     return *it;
   }
 
-  boost::signals2::signal<void(uint64_t)> signal_new_participant;
-  boost::signals2::signal<void(uint64_t,char*,uint32_t)> signal_message_broadcast_message;
-  boost::signals2::signal<void(uint64_t,char*,uint32_t)> signal_new_message;
-  boost::signals2::signal<void(uint64_t)> signal_participant_leave;
   std::mt19937_64 rng;
   std::mutex participants_mutex;
   std::set<nr_participant_ptr,std::less<>> participants_;
@@ -332,9 +357,9 @@ private:
   std::mutex superbuffer_mutex;
   //std::vector<message_node_ptr> messages_buffer_;
   std::vector<std::vector<std::byte>> superbuffer_;
-  size_t max_participant_buffer_size_;
-  size_t max_message_buffer_size_;
-  size_t super_message_buffer_size_;
+  std::atomic_size_t max_participant_buffer_size_;
+  std::atomic_size_t max_message_buffer_size_;
+  std::atomic_size_t super_message_buffer_size_;
   std::atomic_bool b_prealocate_supper_message_buffer_;
   std::string m_server_name;
   std::atomic_bool auto_update_participants; // new participnats are updated with the others at them moment they join to the room

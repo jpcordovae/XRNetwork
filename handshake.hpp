@@ -52,7 +52,9 @@ private:
       //LOG THIS !!!
       this->disconnect();
       }*/
-
+    //m_name = std::string(st_hello_ack->participant_name_buffer);
+    std::copy(st_hello_ack->configuration_buffer,st_hello_ack->configuration_buffer+st_hello_ack->configuration_buffersize,std::back_inserter(m_participant_devices_configuration));
+      
     ST_HANDSHAKE_CREDENTIALS *hc = new ST_HANDSHAKE_CREDENTIALS();
     //hc->server_certificate_buffer;
     XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS,
@@ -70,6 +72,7 @@ private:
     if(strcmp((char*)msg->login_buffer,"login")!=0 || strcmp((char*)msg->password_buffer,"password")!=0) {
       disconnect();
     }
+    do_read_byte();
     // send pariticpant_join
     std::string welcome_message = "accepted in room";
     m_room.join(shared_from_this());
@@ -82,8 +85,7 @@ private:
            welcome_message.c_str(),
            join_ptr.message_buffersize);
 
-    m_room.init_new_participant(shared_from_this());
-    do_read_byte();
+    //m_room.init_new_participant(shared_from_this());
 
     std::cout << "PARTICIPANT_JOIN" << std::endl;
     std::cout << join_ptr << std::endl;

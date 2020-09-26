@@ -76,7 +76,6 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_NEW part_new)
 }
 
 // ST_PARTICIPANT_NEW_ACK
-
 struct ST_PARTICIPANT_NEW_ACK
 {
   uint64_t new_participant_id;
@@ -89,7 +88,6 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_NEW_ACK part_new
 }
 
 // ST_PARTICIPANT_JOIN
-
 struct ST_PARTICIPANT_JOIN
 {
   uint64_t participant_id;
@@ -117,7 +115,6 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_JOIN join)
 }
 
 // ST_PARTICIPANT_JOIN_ACK
-
 struct ST_PARTICIPANT_JOIN_ACK
 {
   uint64_t participant_id;
@@ -131,7 +128,6 @@ std::ostream &operator<<(std::ostream &os, ST_PARTICIPANT_JOIN_ACK msg)
 }
 
 // PARTICIPANT_INFO_REQUEST
-
 struct ST_PARTICIPANT_INFO_REQUEST {
   uint64_t participant_id; // just to add a dummy load
 };
@@ -144,7 +140,6 @@ ST_PARTICIPANT_INFO_REQUEST build_participant_info_request(uint64_t participant_
 }
 
 // PARTICIPANT_INFO_EQUEST_ACK
-
 struct ST_PARTICIPANT_INFO_REQUEST_ACK {
   uint64_t participant_id;
   uint32_t namebuffer_size;
@@ -157,7 +152,6 @@ struct ST_PARTICIPANT_INFO_REQUEST_ACK {
 };
 
 // ST_PARTICIPANT_UPDATE
-
 struct ST_PARTICIPANT_UPDATE {
   uint64_t origin_timestamp;
   uint64_t reception_timestamp;
@@ -177,8 +171,8 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_UPDATE update)
 }
 
 // ST_PARTICIPANT_UPDATE_ACK
-
 struct ST_PARTICIPANT_UPDATE_ACK {
+  uint64_t participant_id;
   uint64_t origin_timestamp;
   uint16_t buffersize;
   std::byte buffer[1024*20];
@@ -198,13 +192,12 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_UPDATE_ACK msg)
 }
 
 // ST_HANDSHAKE_HELLO
-
 struct ST_HANDSHAKE_HELLO {
-  //uint8_t  endianess; // 1: little endian, 0: big endian
-  uint64_t service_id; // id of the server
-  uint64_t participant_id; // id asigned by the server
-  uint64_t server_timestamp; // timestamp of the server in UTC0
-  uint32_t servername_buffersize;
+  //uint8_t  endianess;              // 1: little endian, 0: big endian
+  uint64_t service_id;               // id of the server
+  uint64_t participant_id;           // id asigned by the server
+  uint64_t server_timestamp;         // timestamp of the server in UTC0
+  uint32_t servername_buffersize;    // 
   std::byte servername_buffer[1024]; // 1kb for the name, check this in code
 };
 
@@ -232,19 +225,23 @@ std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO &st_hello)
 }
 
 // ST_HANDSHAKE_HELLO_ACK
-
 struct ST_HANDSHAKE_HELLO_ACK
 {
   uint64_t participant_id;
   uint64_t client_timestamp;
   uint16_t participant_name_buffersize;
   std::byte participant_name_buffer[1024];
+  uint16_t configuration_buffersize;
+  std::byte configuration_buffer[1024*20];
+
   ST_HANDSHAKE_HELLO_ACK(): participant_id(0),
                             client_timestamp(0),
                             participant_name_buffersize(0)
   {
     memset(participant_name_buffer,0x00,1024);
+    memset(configuration_buffer,0x00,1024*20);
   }
+
 };
 
 std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO_ACK &st_hello_ack)
@@ -261,7 +258,6 @@ enum class EN_SECURITY : int16_t { LOGIN_PASSWORD,
                                    TLS };
 
 // ST_HANDSHAKE_CREDENTIALS
-
 struct ST_HANDSHAKE_CREDENTIALS
 {
   uint32_t server_certificate_buffersize;
@@ -281,7 +277,6 @@ ST_HANDSHAKE_CREDENTIALS build_handshake_credentials()
 }
 
 // ST_HANDSHAKE_CREDENTIALS_ACK
-
 struct ST_HANDSHAKE_CREDENTIALS_ACK
 {
   uint64_t participant_id;

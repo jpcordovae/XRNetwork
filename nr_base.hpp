@@ -18,9 +18,9 @@
 #include <boost/signals2.hpp>
 #include <mutex>
 #include "message.hpp"
-#ifdef WINNT_
-#include <boost\winapi\basic_types.hpp>
-#endif
+//#ifdef WINNT_
+//#include <boost\winapi\basic_types.hpp>
+//#endif
 #include <boost/asio/error.hpp>
 #include <boost/crc.hpp>
 #include <condition_variable>
@@ -33,6 +33,7 @@
 #include <boost/log/sources/severity_feature.hpp>
 #include <boost/log/sources/severity_logger.hpp>
 #include <endian.h>
+#include <functional>
 
 using boost::asio::ip::tcp;
 using boost::asio::ip::udp;

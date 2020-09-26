@@ -18,8 +18,8 @@ public:
   struct nr_participant_info {
     char ipv4_ip[512];
     char name[1024];
-    uint64_t m_id;
-    uint64_t server_id_;
+    std::atomic_uint64_t m_id;
+    std::atomic_uint64_t server_id_;
 
     nr_participant_info() : m_id(0)
     {
@@ -96,9 +96,9 @@ public:
   std::string m_name;
   std::string IP;
   //std::deque<nr_message> messages_deque; // in case you want to inspect the messages
-  uint64_t m_id; // random ID for the participant
+  std::atomic_uint64_t m_id; // random ID for the participant
   nr_participant_info_ptr info_ptr_;
-  bool deaf_;
+  std::atomic_bool deaf_;
 };
 
 typedef nr_participant::nr_participant_ptr nr_participant_ptr;

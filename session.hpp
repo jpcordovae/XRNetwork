@@ -13,6 +13,9 @@ public:
   typedef std::deque<buffer_type_ptr> deque_buffer_type_ptr;
   typedef std::shared_ptr<nr_session> nr_session_ptr;
 
+  buffer_type m_participant_devices_configuration; // xml file saved on a raw memory buffer
+
+  
   nr_session(std::shared_ptr<tcp::socket> socket,
              network_room& room,
              const uint64_t &service_id,
@@ -107,23 +110,29 @@ protected:
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
                               if (!ec) {
-                                std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << " bytes" << std::endl;
+                                //std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << " bytes" << std::endl;
                                 XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
                                 xr_message_header *header = message_ptr->get_header();
-                                print_buffer(read_buffer_.data(),60);
-                                std::cout << *header << std::endl;
-                                std::cout << std::endl;
+                                //print_buffer(read_buffer_.data(),60);
+                                //std::cout << *header << std::endl;
+                                //std::cout << std::endl;
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK):
-                                  break;
+				  {
+				    std::cout << std::endl << "PARTICIPANT_JOIN_ACK" << std::endl;
+				    ST_PARTICIPANT_JOIN_ACK *pack = static_cast<ST_PARTICIPANT_JOIN_ACK*>((void*)message_ptr->payload());
+				    std::cout << *pack << std::endl;
+				    m_room.init_new_participant(pack->participant_id);
+				  }
+				  break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW_ACK):
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   {
-                                    std::cout << std::endl << "PARTICIPANT_UPDATE_ACK" << std::endl;
+                                    //std::cout << std::endl << "PARTICIPANT_UPDATE_ACK" << std::endl;
                                     ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
-                                    //print_buffer(read_buffer_.data(),60);
-                                    std::cout << std::endl << *upd << std::endl;
+				    //print_buffer(read_buffer_.data(),60);
+                                    //std::cout << std::endl << *upd << std::endl;
                                   }
                                   break;
                                 default:
@@ -240,7 +249,6 @@ protected:
   bool keep_alive;
   uint64_t m_service_id;
   std::string m_server_name;
-
   std::vector<XRMessage> m_message_queue;
 };// END nr_session
 
