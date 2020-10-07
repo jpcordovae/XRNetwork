@@ -51,7 +51,10 @@ std::ostream &operator<<(std::ostream &os, const xr_message_header header)
 
 std::ostream &operator<<(std::ostream &os, const xr_message_header *header_ptr)
 {
-  std::cout <<  "head | buffersieze | is_big_endian \n" << std::hex << header_ptr->head << " | " << std::hex << header_ptr->buffersize << " | " << std::hex << header_ptr->payload_is_big_endian;
+  std::cout <<  "head | buffersieze | is_big_endian \n"
+	    << std::hex << header_ptr->head << " | "
+	    << std::hex << header_ptr->buffersize << " | "
+	    << std::hex << header_ptr->payload_is_big_endian;
   return os;
 }
 
@@ -63,7 +66,8 @@ public:
 
   XRMessage(const std::byte*buffer, const uint32_t &_buffersize, bool check_endianess)
   {
-    this->resize(sizeof(xr_message_header) + _buffersize);
+    //this->resize(sizeof(xr_message_header) + _buffersize);
+    this->resize(65536);
     memset(data(),0x00,size());
     std::copy(buffer,buffer+_buffersize,this->begin());
     /*if(check_endianess && is_system_little_endian()){
@@ -77,9 +81,10 @@ public:
 
     //if(m_b_delimiter)
     //  tsize += 1;
-
-    this->resize(tsize);
-
+    
+    //this->resize(tsize);
+    this->resize(65536);
+    memset(this->data(),0x00,65536);
     //if(is_system_little_endian()){ // network is big endian
       // swap all buffers
       //uint16_t _head2 = swap_endian<uint16_t>(_head);

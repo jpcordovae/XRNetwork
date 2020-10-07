@@ -68,6 +68,8 @@ constexpr bool is_little_endian =
 #define NR_FAIL -1
 #define NR_OK    0
 
+#define JSON_BUFFER_SIZE 1024*20
+
 std::ostream &operator<<(std::ostream &os, const std::byte b)
 {
   os << std::hex << std::setw(2) << (0xFF & (unsigned int)b);

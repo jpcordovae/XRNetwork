@@ -52,9 +52,8 @@ private:
       //LOG THIS !!!
       this->disconnect();
       }*/
-    //m_name = std::string(st_hello_ack->participant_name_buffer);
-    std::copy(st_hello_ack->configuration_buffer,st_hello_ack->configuration_buffer+st_hello_ack->configuration_buffersize,std::back_inserter(m_participant_devices_configuration));
-      
+    std::copy(st_hello_ack->configuration_buffer,st_hello_ack->configuration_buffer+st_hello_ack->configuration_buffersize,std::back_inserter(m_descriptor));
+    // TODO: read the xml and do something with it 
     ST_HANDSHAKE_CREDENTIALS *hc = new ST_HANDSHAKE_CREDENTIALS();
     //hc->server_certificate_buffer;
     XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS,

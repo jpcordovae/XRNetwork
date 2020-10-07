@@ -4,6 +4,7 @@
 #include "nr_base.hpp"
 #include "room.hpp"
 #include "XRMessage.hpp"
+#include "map"
 
 class nr_session : public nr_participant, public std::enable_shared_from_this<nr_session>
 {
@@ -13,9 +14,6 @@ public:
   typedef std::deque<buffer_type_ptr> deque_buffer_type_ptr;
   typedef std::shared_ptr<nr_session> nr_session_ptr;
 
-  buffer_type m_participant_devices_configuration; // xml file saved on a raw memory buffer
-
-  
   nr_session(std::shared_ptr<tcp::socket> socket,
              network_room& room,
              const uint64_t &service_id,
@@ -36,7 +34,6 @@ public:
 
   void start()
   {
-    //IP = socket_.remote_endpoint().address().to_string();
     IP = m_socket_ptr->remote_endpoint().address().to_string();
     m_room.join(shared_from_this());
     do_read_byte();
@@ -53,8 +50,11 @@ public:
 
   void deliver_byte(std::byte* buffer, size_t buffersize)
   {
+    m_deque_write_buffer_mutex.lock();
     bool write_in_progress = !deque_write_buffer_.empty();
     deque_write_buffer_.push_back(buffer_type_ptr(new buffer_type(buffer,buffer+buffersize)));
+    m_deque_write_buffer_mutex.unlock();
+    
     if (!write_in_progress) {
       do_write_byte();
     }
@@ -62,8 +62,11 @@ public:
 
   void deliver_byte(buffer_type buffer)
   {
+    m_deque_write_buffer_mutex.lock();
     bool write_in_progres = !deque_write_buffer_.empty();
     deque_write_buffer_.push_back(buffer_type_ptr(new buffer_type(buffer)));
+    m_deque_write_buffer_mutex.unlock();
+    
     if (!write_in_progres) {
       do_write_byte();
     }
@@ -71,13 +74,16 @@ public:
 
   void deliver_ptr(buffer_type_ptr buffer_ptr)
   {
+    m_deque_write_buffer_mutex.lock();
     bool write_byte_in_progress_ = !deque_write_buffer_.empty();
     deque_write_buffer_.push_back(buffer_ptr);
+    m_deque_write_buffer_mutex.unlock();
+    
     if (!write_byte_in_progress_) {
       do_write_byte();
     }
   }
-
+  
   void close()
   {
     do_close();
@@ -109,6 +115,7 @@ protected:
     boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
+			      
                               if (!ec) {
                                 //std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << " bytes" << std::endl;
                                 XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
@@ -119,9 +126,12 @@ protected:
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK):
 				  {
-				    std::cout << std::endl << "PARTICIPANT_JOIN_ACK" << std::endl;
+				    //std::cout << std::endl << "PARTICIPANT_JOIN_ACK" << std::endl;
 				    ST_PARTICIPANT_JOIN_ACK *pack = static_cast<ST_PARTICIPANT_JOIN_ACK*>((void*)message_ptr->payload());
-				    std::cout << *pack << std::endl;
+				    m_descriptor.clear();
+				    // save descriptor of the participant, is client platform dependent, for the server is a bunch of bytes
+				    std::copy(pack->json_buffer,pack->json_buffer+pack->json_buffersize,std::back_inserter(m_descriptor));
+				    //std::cout << *pack << std::endl;
 				    m_room.init_new_participant(pack->participant_id);
 				  }
 				  break;
@@ -130,11 +140,17 @@ protected:
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   {
                                     //std::cout << std::endl << "PARTICIPANT_UPDATE_ACK" << std::endl;
-                                    ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
-				    //print_buffer(read_buffer_.data(),60);
-                                    //std::cout << std::endl << *upd << std::endl;
+                                    //ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
+				    //std::cout << std::endl << *upd << std::endl;
+				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
                                   }
                                   break;
+				case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_LEAVE_ACK):
+				  {
+				    //ST_PARTICIPANT_LEAVE_ACK *leave = static_cast<ST_PARTICIPANT_LEAVE_ACK*>((void*)message_ptr->payload());
+				    m_room.disconnect_participant(m_id);
+				  }
+				  break;
                                 default:
                                   disconnect();
                                   break;
@@ -163,7 +179,7 @@ private:
         m_socket_ptr->shutdown(boost::asio::ip::tcp::socket::shutdown_both, errorcode);
         if (errorcode) {
           //trace("Closing failed: ", errorcode.message());
-          std::cerr << "nr_session do_close  shutdown socket error: " << errorcode.message();
+          std::cerr << "nr_session do_close shutdown socket error: " << errorcode.message();
         }
         //socket_.close(errorcode);
         m_socket_ptr->close(errorcode);
@@ -177,7 +193,8 @@ private:
     }
   }
 
-  /*void do_read_header()
+  /*
+  void do_read_header()
   {
     // decoding header
     auto self(shared_from_this());
@@ -210,45 +227,80 @@ private:
                                 m_room.leave(shared_from_this());
                               }
                             });
-  }*/
-
+  }
+  */
+  
   void do_write_byte()
   {
     auto self(shared_from_this());
+    //std::cout << std::to_string(deque_write_buffer_.front()->size()) << " bytes to write" << std::endl;
+    m_deque_write_buffer_mutex.lock();
+    buffer_type_ptr btp = deque_write_buffer_.front();
+    deque_write_buffer_.pop_front();
+    m_deque_write_buffer_mutex.unlock();
+    
+    boost::asio::async_write(*m_socket_ptr,
+                             boost::asio::buffer(btp->data(),
+                                                 btp->size()),
+			                         [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
+						   if (!ec) {
+						     if(bytes_writen != 65536)
+						       std::cout << "ERROR: " << std::to_string(bytes_writen) << " bytes written" << std::endl;
+						     else
+						       std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
+						     
+						     m_deque_write_buffer_mutex.lock();
+						     bool queue_is_empty = deque_write_buffer_.empty();
+						     m_deque_write_buffer_mutex.unlock();
+
+						     //deque_write_buffer_.pop_front();
+						     if (!queue_is_empty) {
+						       do_write_byte();
+						     }
+						   }
+						   else {
+						     std::cerr << "nr_session:do_write error" << std::endl;
+						     m_room.leave(shared_from_this());
+						   }
+						 });
+    
+    /*
     boost::asio::async_write(*m_socket_ptr,
                              boost::asio::buffer(deque_write_buffer_.front()->data(),
-                                                 deque_write_buffer_.front()->capacity()),
-                                                 //deque_write_buffer_.front()->size()),
-                             [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
-                               if (!ec) {
-                                 std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
-                                 deque_write_buffer_.pop_front();
-                                 if (!deque_write_buffer_.empty()) {
-                                   do_write_byte();
-                                 }
-                               }
-                               else {
-                                 std::cout << "nr_session:do_write error" << std::endl;
-                                 m_room.leave(shared_from_this());
-                               }
-                             });
+                                                 deque_write_buffer_.front()->size()),
+			                         [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
+						   if (!ec) {
+						     std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
+						     deque_write_buffer_.pop_front();
+						     if (!deque_write_buffer_.empty()) {
+						       do_write_byte();
+						     }
+						   }
+						   else {
+						     std::cerr << "nr_session:do_write error" << std::endl;
+						     m_room.leave(shared_from_this());
+						   }
+						   });*/
   }
 
 protected:
-  //tcp::socket socket_;
+
+  // network
   std::shared_ptr<tcp::socket> m_socket_ptr;
   network_room& m_room;
-  //network_room& m_handshake_room;
+  bool keep_alive;
+  // buffers
   buffer_type read_buffer_;
   buffer_type write_buffer_;
+  // 
   std::mutex m_deque_write_buffer_mutex;
   deque_buffer_type_ptr deque_write_buffer_;
   deque_buffer_type_ptr deque_read_buffer_;
   nr_message read_msg_;
   nr_message_queue write_msgs_;
-  bool keep_alive;
   uint64_t m_service_id;
   std::string m_server_name;
+  // XRMessage queue
   std::vector<XRMessage> m_message_queue;
 };// END nr_session
 

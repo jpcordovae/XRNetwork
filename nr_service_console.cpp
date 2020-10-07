@@ -4,7 +4,7 @@
 // nr_server.cpp
 // ~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2020 Juan Pablo Cordova E. (jpcordovae at gmail dot com)
+// Copyright (c) 2020 Juan Pablo Cordova E. (jpcordovae at knights ucf edu)
 //
 // Distributed under MIT License
 //

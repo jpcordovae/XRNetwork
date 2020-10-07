@@ -21,8 +21,10 @@ class nr_server : public std::enable_shared_from_this<nr_server>
 public:
   typedef std::shared_ptr<nr_server> nr_server_ptr;
 
-  nr_server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint) : acceptor_(io_context, endpoint),
-                                                                                  b_server_has_started_(false)
+  nr_server(boost::asio::io_context& io_context, const tcp::endpoint& endpoint) : m_io_context(io_context),
+										  acceptor_(io_context, endpoint),
+                                                                                  b_server_has_started_(false),
+										  room_(io_context)
   {
     //context = std::make_shared<boost::asio::io_context&>(io_context);
     room_.set_max_participants(DEFAULT_MAX_PARTICIPANTS);
@@ -100,7 +102,7 @@ public:
 
   void set_max_handshake_connections(uint16_t max_connections)
   {
-    m_handshake_room.set_max_participants(max_connections);
+    room_.set_max_participants(max_connections);
   }
 
   uint16_t get_max_participants()
@@ -203,19 +205,20 @@ private:
 			   [this,self](boost::system::error_code ec, tcp::socket socket)
 			   {
 			     if (!ec) {
-                   std::shared_ptr<tcp::socket> socket_ptr = std::make_shared<tcp::socket>(std::move(socket));
-                   std::make_shared<handshake_session>(socket_ptr, room_, m_service_id, m_service_name)->start();
-                   do_accept();
-                 }
+			       std::shared_ptr<tcp::socket> socket_ptr = std::make_shared<tcp::socket>(std::move(socket));
+			       std::make_shared<handshake_session>(socket_ptr, room_, m_service_id, m_service_name)->start();
+			       do_accept();
+			     }
 			     else {
 			       std::cout << "nr_server::do_accept::acceptor_::async_accept : " << ec.message() << std::endl;
 			     }
 			   });
   }
 
+  boost::asio::io_context &m_io_context;
   tcp::acceptor acceptor_;
   network_room room_;
-  network_room m_handshake_room;
+  //network_room m_handshake_room;
   // has started condition variable
   std::mutex server_has_started_mutex_;
   std::condition_variable server_has_started_;

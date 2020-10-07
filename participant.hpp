@@ -11,8 +11,13 @@ public:
   typedef std::shared_ptr<nr_participant> nr_participant_ptr;
 
   nr_participant() : m_id(0L), deaf_(false)
-  {}
+  {  }
 
+  void set_descriptor(std::byte *buffer, uint16_t buffersize)
+  {
+    std::copy(buffer, buffer + buffersize, std::back_inserter(m_descriptor));
+  }
+  
   // for performance just copy the whole structure to some managed memory space
 #pragma pack(1)
   struct nr_participant_info {
@@ -20,7 +25,6 @@ public:
     char name[1024];
     std::atomic_uint64_t m_id;
     std::atomic_uint64_t server_id_;
-
     nr_participant_info() : m_id(0)
     {
       memset(name, 0x00, 1024);
@@ -99,6 +103,7 @@ public:
   std::atomic_uint64_t m_id; // random ID for the participant
   nr_participant_info_ptr info_ptr_;
   std::atomic_bool deaf_;
+  std::vector<std::byte> m_descriptor;
 };
 
 typedef nr_participant::nr_participant_ptr nr_participant_ptr;
