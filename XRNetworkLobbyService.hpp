@@ -131,20 +131,33 @@ public:
   void set_protocol_v6() { PROTOCOL_VERSION_ = PROTOCOL_VERSION::V6; }
   int get_protocol_version() { return (PROTOCOL_VERSION_ == PROTOCOL_VERSION::V4 ? 4 : 6); }
 
-  int set_max_participants(uint16_t max_participants) { 
+  int set_max_participants(uint16_t max_participants) {
     try {
       max_participants_ = max_participants;
-      if (b_thread_running_)
-	{
-	  server->set_max_participants(max_participants_);
-	  return NR_OK;
-	}
+      if (b_thread_running_) {
+        server->set_max_participants(max_participants_);
+        return NR_OK;
+      }
       return NR_FAIL;
     }
     catch (std::exception &e) {
       std::cout << "set_max_participants exception: " << e.what() << std::endl;
     }
     return NR_FAIL;
+  }
+
+  int set_max_handshake_connections(uint16_t max_connections)
+  {
+    try {
+      m_handshake_max_connections = max_connections;
+      if (b_thread_running_) {
+        server->set_max_handshake_connections(max_connections);
+        return NR_OK;
+      }
+      return NR_FAIL;
+    }catch(std::exception &e) {
+      std::cout << "set_max_participants exception: " << e.what() << std::endl;
+    }
   }
 
   uint16_t get_max_participants() { return max_participants_; }
@@ -161,7 +174,7 @@ public:
     return NR_OK;
   }
 
-  bool get_broadcasting_all_messages() { 
+  bool get_broadcasting_all_messages() {
     return b_auto_broadcast_all_incoming_messages;
   }
 
@@ -233,8 +246,8 @@ public:
     }
   }
 
-  uint16_t participants_count() 
-  {  
+  uint16_t participants_count()
+  {
     try {
       if (b_thread_running_)
 	return server->participants_count();
@@ -244,7 +257,7 @@ public:
     }
     return 0;
   };
-  
+
   void get_participant_info(const uint64_t participant_id, nr_participant_info* pinfo)
   {
     assert(pinfo != nullptr);
@@ -272,7 +285,7 @@ public:
   void set_service_name(std::string name) { service_name_ = name; }
   std::string get_service_name() { return service_name_; }
 
-  ~XRNetworkLobbyService() 
+  ~XRNetworkLobbyService()
   {
     if (b_thread_running_)
       {
@@ -295,13 +308,27 @@ public:
     return NR_OK;
   }
 
+  int set_auto_update_participants(const bool au)
+  {
+    if(!b_thread_running_) return NR_FAIL;
+    server->set_auto_update_participants(au);
+    return NR_OK;
+  }
+
+  int get_auto_update_participants(bool &au)
+  {
+    if(!b_thread_running_) return NR_FAIL;
+    au = server->get_auto_update_participants();
+    return NR_OK;
+  }
+
   /*int get_participant_info(uint64_t participant_id, nr_participant_info *info)
   {
     if(!b_thread_running_) return NR_FAIL;
     server->get_participant_info(participant_id,info);
     return NR_OK;
     }*/
-  
+
 private:
 
   void thread_function()
@@ -320,6 +347,7 @@ private:
       server->set_keep_alive(b_keep_alive_);
       server->set_max_participants(max_participants_);
       server->set_broadcasting_all_messages(b_auto_broadcast_all_incoming_messages);
+      server->set_service_name(service_name_);
       /*if (PROTOCOL == TCP) {
 	if (PROTOCOL_VERSION == V4) {
 	server = std::shared_ptr<nr_server>(new nr_server(io_context_, tcp_endpoint));
@@ -362,6 +390,7 @@ private:
   uint16_t port_;
   boost::signals2::signal<void()> OnRunning;
   boost::signals2::signal<void()> OnStopping;
+  uint16_t m_handshake_max_connections;
 };
 
 typedef XRNetworkLobbyService::xrnls_ptr xrnls_ptr;

@@ -6,6 +6,47 @@
 #include <thread>
 
 using namespace boost;
+
+std::string  check_system_error_code(boost::system::error_code ec)
+{
+  switch(ec.value()){
+  case asio::error::address_family_not_supported: return "asio::error::address_family_not_supported "; break;
+  case asio::error::address_in_use: return "asio::error::address_in_use "; break;
+  case asio::error::already_connected: return "asio::error::already_connected "; break;
+  case asio::error::already_started: return "asio::error::already_started "; break;
+  case asio::error::broken_pipe: return "asio::error::broken_pipe "; break;
+  case asio::error::connection_aborted: return "asio::error::connection_aborted "; break;
+  case asio::error::connection_refused: return "asio::error::connection_refused "; break;
+  case asio::error::connection_reset: return "asio::error::connection_reset "; break;
+  case asio::error::bad_descriptor: return "asio::error::bad_descriptor "; break;
+  case asio::error::fault: return "asio::error::fault "; break;
+  case asio::error::host_unreachable: return "asio::error::host_unreachable "; break;
+  case asio::error::in_progress: return "asio::error::in_progress "; break;
+  case asio::error::interrupted: return "asio::error::interrupted "; break;
+  case asio::error::invalid_argument: return "asio::error::invalid_argument "; break;
+  case asio::error::message_size: return "asio::error::message_size "; break;
+  case asio::error::name_too_long: return "asio::error::name_too_long "; break;
+  case asio::error::network_down: return "asio::error::network_down "; break;
+  case asio::error::network_reset: return "asio::error::network_reset "; break;
+  case asio::error::network_unreachable: return "asio::error::network_unreachable "; break;
+  case asio::error::no_descriptors: return "asio::error::no_descriptors "; break;
+  case asio::error::no_buffer_space: return "asio::error::no_buffer_space "; break;
+  case asio::error::no_memory: return "asio::error::no_memory "; break;
+  case asio::error::no_permission: return "asio::error::no_permission "; break;
+  case asio::error::no_protocol_option: return "asio::error::no_protocol_option "; break;
+  case asio::error::not_connected: return "asio::error::not_connected "; break;
+  case asio::error::not_socket: return "asio::error::not_socket "; break;
+  case asio::error::operation_aborted: return "asio::error::operation_aborted "; break;
+  case asio::error::operation_not_supported: return "asio::error::operation_not_supported "; break;
+  case asio::error::shut_down: return "asio::error::shut_down "; break;
+  case asio::error::timed_out: return "asio::error::timed_out "; break;
+    //case asio::error::try_again: return "asio::error::try_again "; break;
+  case asio::error::would_block: return "asio::error::would_block "; break;
+  default: break;
+  }
+  return "";
+}
+
 /*
 #define ASIO_ERROR_MESSAGE_CASE(MSG,EC) case  #EC: \
 											std::cout << #MSG << std::endl; \

@@ -4,7 +4,7 @@
 // nr_server.cpp
 // ~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2020 Juan Pablo Cordova E. (jpcordovae at gmail dot com)
+// Copyright (c) 2020 Juan Pablo Cordova E. (jpcordovae at knights ucf edu)
 //
 // Distributed under MIT License
 //
@@ -43,11 +43,14 @@ void OnParticipantLeave(uint64_t participant_id)
 
 void OnServiceStarted()
 {
-  cout << "----- service has stated." << endl;
+  cout << "---- service has stated." << endl;
   if (!b_instantiated) {
     xrnls->register_callback_new_participant(OnNewParticipant);
     xrnls->register_callback_new_message(OnNewMessage);
     xrnls->register_callback_participant_leave(OnParticipantLeave);
+    xrnls->set_max_participants(100);
+    xrnls->set_max_handshake_connections(100);
+    xrnls->set_auto_update_participants(true);
     b_instantiated = true;
   }
 }
@@ -71,6 +74,7 @@ int main(int argc, char* argv[])
     
   xrnls->set_port(port);
   xrnls->set_socket_no_delay(true);
+  xrnls->set_service_name("JP Service");
   bool broadcast_to_all = false;
   //nr_participant_info *pinfo = new nr_participant_info();
   std::cout << "----------------------" << std::endl;
