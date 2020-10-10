@@ -20,17 +20,23 @@ struct xr_message_header{
   uint16_t payload_is_big_endian; // options are 0xFFFF for big endian, and 0x0000 for little endian
   xr_message_header() : head(0),buffersize(0)
   {
-    if(!is_system_little_endian()) payload_is_big_endian = 0xFFFF;
-    else
+    /*
+      if(!is_system_little_endian()) payload_is_big_endian = 0xFFFF;
+      else
       payload_is_big_endian = 0x0000;
+    */
+    payload_is_big_endian = 0xFFFF;
   }
   xr_message_header(uint16_t _head, uint32_t _bsize) : head(_head), buffersize(_bsize)
   {
-    if(!is_system_little_endian()) payload_is_big_endian = 0xFFFF;
-    else
+    /*
+      if(!is_system_little_endian()) payload_is_big_endian = 0xFFFF;
+      else
       payload_is_big_endian = 0x0000;
+    */
+    payload_is_big_endian = 0xFFFF;
   }
-};
+} __attribute__((__packed__));
 
 xr_message_header swap_xr_message_header(const xr_message_header *msg)
 {
@@ -75,9 +81,14 @@ public:
       }*/
   }
 
+  XRMessage(const uint16_t &_head, const std::vector<std::byte> msg)
+  {
+    XRMessage(_head, msg.data(), msg.size());
+  }
+  
   XRMessage(const uint16_t &_head, const std::byte *buffer, const uint32_t &_buffersize)
   {
-    size_t tsize = sizeof(xr_message_header) + _buffersize;
+    //size_t tsize = sizeof(xr_message_header) + _buffersize;
 
     //if(m_b_delimiter)
     //  tsize += 1;

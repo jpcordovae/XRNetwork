@@ -40,7 +40,7 @@ private:
     do_read_handshake();
     uint64_t timestamp = get_timestamp_now();
     ST_HANDSHAKE_HELLO hh = build_handshake_hello(m_service_id,m_id,timestamp,m_server_name);
-    std::cout << "ST_HANDSHAKE_HELLO :" << std::endl << hh << std::endl;
+    std::cout << ">> ST_HANDSHAKE_HELLO :" << std::endl << hh << std::endl;
     XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO,(std::byte*)&hh,(uint32_t) sizeof(ST_HANDSHAKE_HELLO));
     print_buffer(msg.data(),60);
     deliver_byte((std::byte*)msg.data(),msg.size());
@@ -48,18 +48,22 @@ private:
 
   void check_handshake_hello_ack(ST_HANDSHAKE_HELLO_ACK *st_hello_ack, uint32_t buffersize)
   {
-    /*if(!m_room.participant_exist(st_hello_ack->participant_id)){
+    /*
+      if(!m_room.participant_exist(st_hello_ack->participant_id)){
       //LOG THIS !!!
       this->disconnect();
-      }*/
-    std::copy(st_hello_ack->configuration_buffer,st_hello_ack->configuration_buffer+st_hello_ack->configuration_buffersize,std::back_inserter(m_descriptor));
+      }
+    */
+    std::copy(st_hello_ack->configuration_buffer,
+	      st_hello_ack->configuration_buffer + st_hello_ack->configuration_buffersize,
+	      std::back_inserter(m_descriptor));
     // TODO: read the xml and do something with it 
     ST_HANDSHAKE_CREDENTIALS *hc = new ST_HANDSHAKE_CREDENTIALS();
     //hc->server_certificate_buffer;
     XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS,
                   (std::byte*)hc,
                   (uint32_t)sizeof(ST_HANDSHAKE_CREDENTIALS));
-    std::cout << "HANDSHAKE_CREDENTIALS" << std::endl;
+    std::cout << ">> HANDSHAKE_CREDENTIALS" << std::endl;
     print_buffer(msg.data(),60);
     std::cout << std::endl;
     deliver_byte(msg.data(),msg.size());
@@ -86,7 +90,7 @@ private:
 
     //m_room.init_new_participant(shared_from_this());
 
-    std::cout << "PARTICIPANT_JOIN" << std::endl;
+    std::cout << ">> PARTICIPANT_JOIN" << std::endl;
     std::cout << join_ptr << std::endl;
     XRMessage xrmsg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN,
                     (std::byte*)&join_ptr,
@@ -111,21 +115,21 @@ private:
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_HELLO_ACK):
                                   {
-                                    std::cout << "HANDSHAKE_HELLO_ACK: " << std::endl;
-                                    ST_HANDSHAKE_HELLO_ACK *st_hello_ack = (ST_HANDSHAKE_HELLO_ACK*)message_ptr->payload();
+                                    std::cout << "<< HANDSHAKE_HELLO_ACK: " << std::endl;
                                     print_buffer(read_buffer_.data(),60);
+                                    ST_HANDSHAKE_HELLO_ACK *st_hello_ack = (ST_HANDSHAKE_HELLO_ACK*)message_ptr->payload();
                                     std::cout << std::endl << *st_hello_ack << std::endl;
                                     check_handshake_hello_ack(st_hello_ack,header->buffersize);
                                   }
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::HANDSHAKE_CREDENTIALS_ACK):
                                   {
-                                    std::cout << "HANDSHAKE_CREDENTIALS_ACK" << std::endl;
-                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = static_cast<ST_HANDSHAKE_CREDENTIALS_ACK*>((void*)message_ptr->payload());
+                                    std::cout << "<< HANDSHAKE_CREDENTIALS_ACK" << std::endl;
+                                    ST_HANDSHAKE_CREDENTIALS_ACK *msg = (ST_HANDSHAKE_CREDENTIALS_ACK*)message_ptr->payload();
                                     print_buffer(read_buffer_.data(),60);
                                     std::cout << std::endl << *msg << std::endl;
                                     check_handshake_credentials_ack(msg);
-                                    return;
+				    return; // need to go out of the reading loop at this point
                                   }
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_INFO_REQUEST_ACK):
@@ -142,6 +146,7 @@ private:
                                   //LOG_WARNING("meader message not recognized.");
                                   break;
                                 };
+				
                                 do_read_handshake();
                               }
                               else{

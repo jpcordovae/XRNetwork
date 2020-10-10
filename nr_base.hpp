@@ -160,12 +160,11 @@ std::ostream &operator<<(std::ostream &os, const std::vector<std::byte> buffer)
 }
 
 void print_buffer(std::byte *buffer, size_t buffersize)
-  {
-    for(size_t i=0;i<buffersize;i++){
-      printf("%02x ",(unsigned int)*(buffer+i));
-    }
+{
+  for(size_t i=0;i<buffersize;i++){
+    printf("%02x ",(unsigned int)*(buffer+i));
   }
-
+}
 
 
 #endif // NR_BASE_H__

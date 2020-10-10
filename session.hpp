@@ -50,38 +50,28 @@ public:
 
   void deliver_byte(std::byte* buffer, size_t buffersize)
   {
-    m_deque_write_buffer_mutex.lock();
-    bool write_in_progress = !deque_write_buffer_.empty();
-    deque_write_buffer_.push_back(buffer_type_ptr(new buffer_type(buffer,buffer+buffersize)));
-    m_deque_write_buffer_mutex.unlock();
-    
-    if (!write_in_progress) {
-      do_write_byte();
-    }
+    deliver_byte(buffer_type_ptr(new buffer_type(buffer,buffer+buffersize)));
   }
 
   void deliver_byte(buffer_type buffer)
   {
-    m_deque_write_buffer_mutex.lock();
-    bool write_in_progres = !deque_write_buffer_.empty();
-    deque_write_buffer_.push_back(buffer_type_ptr(new buffer_type(buffer)));
-    m_deque_write_buffer_mutex.unlock();
-    
-    if (!write_in_progres) {
-      do_write_byte();
-    }
+    deliver_byte(buffer_type_ptr(new buffer_type(buffer)));
   }
 
-  void deliver_ptr(buffer_type_ptr buffer_ptr)
+  void deliver_byte(buffer_type_ptr buffer_ptr)
   {
-    m_deque_write_buffer_mutex.lock();
-    bool write_byte_in_progress_ = !deque_write_buffer_.empty();
-    deque_write_buffer_.push_back(buffer_ptr);
-    m_deque_write_buffer_mutex.unlock();
-    
-    if (!write_byte_in_progress_) {
-      do_write_byte();
-    }
+    boost::asio::post(m_socket_ptr->get_executor(),
+		      [this,buffer_ptr]()
+		      {
+			m_deque_write_buffer_mutex.lock();
+			bool write_byte_in_progress_ = !deque_write_buffer_.empty();
+			deque_write_buffer_.push_back(buffer_ptr);
+			m_deque_write_buffer_mutex.unlock();
+			
+			if (!write_byte_in_progress_) {
+			  do_write_byte();
+			}
+		      });
   }
   
   void close()
@@ -162,7 +152,6 @@ protected:
                               }
                             });
   }
-
 
 private:
 

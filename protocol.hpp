@@ -7,7 +7,7 @@ struct ST_MESSAGE {
   uint16_t m_head;
   uint32_t m_buffersize;
   std::byte *m_buffer;
-};
+}__attribute__((__packed__));
 
 enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
                                             HANDSHAKE_HELLO,
@@ -40,7 +40,7 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
 struct ST_PARTICIPANT_LEAVE
 {
   uint64_t participant_id;
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream& os, const ST_PARTICIPANT_LEAVE del)
 {
@@ -53,7 +53,7 @@ std::ostream &operator<<(std::ostream& os, const ST_PARTICIPANT_LEAVE del)
 struct ST_PARTICIPANT_LEAVE_ACK
 {
   uint64_t participant_id;
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream& os, const ST_PARTICIPANT_LEAVE_ACK del)
 {
@@ -72,7 +72,7 @@ struct ST_PARTICIPANT_NEW
   {
     memset(descriptor_buffer,0x00,1024);
   }
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_NEW part_new)
 {
@@ -86,7 +86,7 @@ std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_NEW part_new)
 struct ST_PARTICIPANT_NEW_ACK
 {
   uint64_t participant_id;
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_NEW_ACK part_new_ack)
 {
@@ -109,7 +109,7 @@ struct ST_PARTICIPANT_JOIN
   {
     memset(message_buffer,0x00,1024*10);
   }
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_JOIN join)
 {
@@ -131,7 +131,7 @@ struct ST_PARTICIPANT_JOIN_ACK
   {
     memset(json_buffer,0x00,JSON_BUFFER_SIZE);
   }
-};
+}__attribute__((__packed__));
 
 
 std::ostream &operator<<(std::ostream &os, ST_PARTICIPANT_JOIN_ACK msg)
@@ -145,7 +145,7 @@ std::ostream &operator<<(std::ostream &os, ST_PARTICIPANT_JOIN_ACK msg)
 // PARTICIPANT_INFO_REQUEST
 struct ST_PARTICIPANT_INFO_REQUEST {
   uint64_t participant_id; // just to add a dummy load
-};
+}__attribute__((__packed__));
 
 ST_PARTICIPANT_INFO_REQUEST build_participant_info_request(uint64_t participant_id)
 {
@@ -164,7 +164,7 @@ struct ST_PARTICIPANT_INFO_REQUEST_ACK {
   {
     memset(namebuffer, 0x00, 1024);
   }
-};
+}__attribute__((__packed__));
 
 // ST_PARTICIPANT_UPDATE
 struct ST_PARTICIPANT_UPDATE {
@@ -196,7 +196,7 @@ struct ST_PARTICIPANT_UPDATE_ACK {
   {
     memset(buffer,0x00,1024*20);
   }
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_PARTICIPANT_UPDATE_ACK msg)
 {
@@ -215,7 +215,7 @@ struct ST_HANDSHAKE_HELLO {
   uint64_t server_timestamp;         // timestamp of the server in UTC0
   uint32_t servername_buffersize;    // 
   std::byte servername_buffer[1024]; // 1kb for the name, check this in code
-};
+}__attribute__((__packed__));
 
 ST_HANDSHAKE_HELLO build_handshake_hello(uint64_t service_id, uint64_t participant_id,
                                          uint64_t server_timestamp, std::string servername)
@@ -255,7 +255,7 @@ struct ST_HANDSHAKE_HELLO_ACK
     memset(configuration_buffer,0x00,1024*20);
   }
 
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_HELLO_ACK &st_hello_ack)
 {
@@ -279,7 +279,14 @@ struct ST_HANDSHAKE_CREDENTIALS
   {
     memset(server_certificate_buffer,0x00,20*1024); // clean the buffer
   }
-};
+}__attribute__((__packed__));
+
+std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_CREDENTIALS &st_cred)
+{
+  os << "certificate buffersize: " << std::dec << st_cred.server_certificate_buffersize << std::endl
+     << "certificate:            " << (char*)st_cred.server_certificate_buffer << std::endl; 
+  return os;
+}
 
 typedef std::shared_ptr<ST_HANDSHAKE_CREDENTIALS> ST_HANDSHAKE_CREDENTIALS_PTR;
 
@@ -296,9 +303,9 @@ struct ST_HANDSHAKE_CREDENTIALS_ACK
   uint16_t login_buffersize;
   std::byte login_buffer[1024];
   uint16_t password_buffersize;
-  std::byte password_buffer[1014];
+  std::byte password_buffer[1024];
   uint16_t participant_certificate_buffersize;
-  std::byte participant_certificate_buffer[20*1024]; // 20kb reserved for certificatesy
+  std::byte participant_certificate_buffer[20*1024]; // 20kb reserved for certificates
 
   ST_HANDSHAKE_CREDENTIALS_ACK() : login_buffersize(0),
                                    password_buffersize(0),
@@ -308,16 +315,16 @@ struct ST_HANDSHAKE_CREDENTIALS_ACK
     memset(password_buffer,0x00,1024);
     memset(participant_certificate_buffer,0x00,20*1024); // clean the buffer
   }
-};
+}__attribute__((__packed__));
 
 std::ostream &operator<<(std::ostream &os, const ST_HANDSHAKE_CREDENTIALS_ACK &ack)
 {
   os << "participant_id: "                     << std::hex << ack.participant_id << std::endl
-     << "login_buffersize: "                   << std::hex << ack.login_buffersize << std::endl
+     << "login_buffersize: "                   << std::dec << ack.login_buffersize << std::endl
      << "login_buffer: "                       << (char*)ack.login_buffer << std::endl
-     << "password_buffersize: "                << std::hex << ack.password_buffersize << std::endl
+     << "password_buffersize: "                << std::dec << ack.password_buffersize << std::endl
      << "password_buffer: "                    << (char*)ack.password_buffer << std::endl
-     << "participant_certificate_buffersize: " << std::hex << ack.participant_certificate_buffersize << std::endl
+     << "participant_certificate_buffersize: " << std::dec << ack.participant_certificate_buffersize << std::endl
      << "participant_certificate_buffer: "     << (char*)ack.participant_certificate_buffer;
   return os;
 }
