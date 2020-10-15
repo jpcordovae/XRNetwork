@@ -8,10 +8,10 @@
 //
 // Distributed under MIT License
 //
-
 #include "nr_server.hpp"
 #include "XRNetworkLobbyService.hpp"
 #include <atomic>
+#include <ncurses.h>
 
 #define BOOST_ASIO_ENABLE_HANDLER_TRACKING
 

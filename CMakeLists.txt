@@ -1,38 +1,48 @@
 cmake_minimum_required(VERSION 2.6)
 PROJECT(XRNetwork)
 
+set(CMAKE_OCNFIGURATION_TYPES "Debug" CACHE STING "" FORCE)
+
 SET(Boost_USE_STATIC_LIBS OFF)
 SET(boost_USE_MULTITHREAD ON)
 SET(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_CXX_EXTENSIONS ON)
 SET(THREADS_PREFER_PTHREAD_FLAG ON)
+SET(CURSES_USE_NCURSES TRUE)
+SET(CMAKE_CXX_STANDARD 17)
+SET(CMAKE_CXX_STANDARD_REQUIRED ON)
+#SET(CMAKE_CXX_EXTENSIONS OFF)
 
 FIND_PACKAGE(Boost 1.70.0 REQUIRED COMPONENTS system thread filesystem log)
 FIND_PACKAGE(Threads REQUIRED)
+FIND_PACKAGE(Curses REQUIRED)
 
 IF(Boost_FOUND)
   INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
   LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 ENDIF(Boost_FOUND)
-      
-SET(USE_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
 
-if(MSVC)
-  set(CMAKE_CXX_FAGS "${CMAKE_CXX_FLAGS} /std:c++17")
-endif(MSCV)
+SET(USED_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
+
+#if(MSVC)
+#  set(CMAKE_CXX_FAGS "${CMAKE_CXX_FLAGS} /std:c++17")
+#endif(MSCV)
 
 if(LINUX)
-  set(CMAKE_CXX_FAGS "${CMAKE_CXX_FLAGS} -std:c++17")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std:c++17 -Wall -pedantic -Wno-reorder -Wno-memset-elt-size")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gdwarf2")
 endif(LINUX)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wno-reorder -Wno-memset-elt-size")
-
 ADD_DEFINITIONS(-DBOOST_LOG_DYN_LINK)
+ADD_DEFINITIONS(-DNCURSES_NOMACRO)
+include_directories(${Boost_INCLUDE_DIR})
+include_directories(${CURSES_INCLUDE_DIRS})
 
 ADD_EXECUTABLE(service nr_service_console.cpp)
-TARGET_LINK_LIBRARIES(service PRIVATE Threads::Threads)
-TARGET_LINK_LIBRARIES(service ${USED_LIBS} Boost::log)
+#target_compile_features(service PUBLIC cxx_std_17)
+TARGET_LINK_LIBRARIES(service ${USED_LIBS} Threads::Threads Boost::log ${CURSES_LIBRARIES} curses)
 
 ADD_EXECUTABLE(client nr_client.cpp)
+#target_compile_features(client PUBLIC cxx_std_17)
 TARGET_LINK_LIBRARIES(client ${USED_LIBS} Threads::Threads Boost::log)
