@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 PROJECT(XRNetwork)
 
-set(CMAKE_OCNFIGURATION_TYPES "Debug" CACHE STING "" FORCE)
+#set(CMAKE_CONFIGURATION_TYPES "Debug" CACHE STING "" FORCE)
 
 SET(Boost_USE_STATIC_LIBS OFF)
 SET(boost_USE_MULTITHREAD ON)
@@ -30,7 +30,7 @@ SET(USED_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBR
 #endif(MSCV)
 
 if(LINUX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std:c++17 -Wall -pedantic -Wno-reorder -Wno-memset-elt-size")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wno-reorder -Wno-memset-elt-size")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gdwarf2")
 endif(LINUX)
 

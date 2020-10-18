@@ -83,6 +83,10 @@ int main(int argc, char* argv[])
   std::cout << "press h for help" << std::endl;
   std::cout << std::endl;
 
+  // NCURSES
+  
+  // END NCURSES
+  
   do {
     c = getchar();
     switch (c)
