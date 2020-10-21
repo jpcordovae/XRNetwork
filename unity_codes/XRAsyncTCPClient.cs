@@ -7,6 +7,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Concurrent;
+using System.Linq;
 
 public class StateObject
 {
@@ -19,17 +20,36 @@ public class StateObject
 
 public class XRAsyncTCPClient
 {
+    //START singleton pattern design
+    private static XRAsyncTCPClient m_instance;
+    private static object m_syncLock = new object();
+    public static XRAsyncTCPClient GetInstance()
+    {
+        if (m_instance == null)
+        {
+            lock (m_syncLock)
+            {
+                if (m_instance == null)
+                {
+                    m_instance = new XRAsyncTCPClient();
+                }
+            }
+        }
+        return m_instance;
+    }
+    //END SPD
+
     private Socket m_client = null;
     private int m_port;
     public int port { get { return m_port; } set { m_port = value; } }
     private static string m_host;
     public string host { get { return m_host; } set { m_host = value; } }
-    public bool IsConnected { get { return m_client.Connected; } set { } }
+    public bool IsConnected { get { if (m_client == null) return false; else return m_client.Connected; } set { } }
     
     // BUFFERS
     private static int m_txBufferSize = 1024 * 64; // 64kb
     private byte[] m_txBuffer = new byte[m_txBufferSize];
-    private static int m_rxBufferSize = 1024 * 64; // 64kb 
+    //private static int m_rxBufferSize = 1024 * 64; // 64kb 
     private byte[] m_rxBuffer = Array.Empty<byte>();
 
     //CALLBACKS
@@ -51,7 +71,7 @@ public class XRAsyncTCPClient
     private Thread ThreadSendMessages;
     public ConcurrentQueue<byte[]> m_concurrent_send_message_queue = new ConcurrentQueue<byte[]>();
     private static ManualResetEvent m_send_message_event = new ManualResetEvent(false);
-    private int m_send_dt = 100; // in milliseconds
+    //private int m_send_dt = 100; // in milliseconds
     public XRAsyncTCPClient()
     {
             
@@ -200,6 +220,11 @@ public class XRAsyncTCPClient
         }
     }
 
+    public void AsyncSend(byte[] message)
+    {
+        AsyncSend(message, message.Length);
+    }
+
     public void AsyncSend(byte[] message, int buffer_size)
     { 
         
@@ -209,7 +234,7 @@ public class XRAsyncTCPClient
         }
         try
         {
-            Debug.Log(string.Format("AsyncSend {0} bytes:\n",buffer_size) + BitConverter.ToString(message));
+            //Debug.Log(string.Format("AsyncSend {0} bytes:\n",buffer_size) + BitConverter.ToString(message));
             Array.Clear(state.tx_buffer, 0, state.tx_buffer.Length);
             Buffer.BlockCopy(message, 0, state.tx_buffer, 0, buffer_size);
             m_client.BeginSend( state.tx_buffer, 
@@ -231,37 +256,33 @@ public class XRAsyncTCPClient
     {
         try
         {
-            StateObject state = (StateObject)ar.AsyncState;
-            Socket client = state.workSocket;
-            int bytesRead = client.EndReceive(ar);
-            //Debug.Log(string.Format("asyncReceiveCallback {0} bytes\nbuffer: {1}", bytesRead,BitConverter.ToString(state.buffer)));
-            
+            StateObject state_object = (StateObject)ar.AsyncState;
+            Socket client_socket = state.workSocket;
+            int bytesRead = client_socket.EndReceive(ar);
+
             if (bytesRead > 0)
             {
-                byte[] tmp = SplitByteArray(state.buffer, 0, bytesRead); 
-                m_rxBuffer = XRNetworkProtocol.ConcatByteArrays(m_rxBuffer,tmp);
-                Array.Clear(state.buffer, 0, StateObject.BufferSize);
-                
+                m_rxBuffer = XRNetworkProtocol.ConcatByteArrays(m_rxBuffer, state_object.buffer);
             }
 
-            if (bytesRead == 0 || client.Available == 0)
+            if (bytesRead == 0 || client_socket.Available == 0)
             {
-                //byte[] new_byte = new byte[m_rxBuffer.Length];
-                //Array.Copy(m_rxBuffer,new_byte,m_rxBuffer.Length);
-                //orcd(new_byte, new_byte.Length);
-                //Debug.Log(string.Format("asyncReceiveCallback {0} bytes\nbuffer: {1}", bytesRead, BitConverter.ToString(m_rxBuffer)));
-                orcd(m_rxBuffer,m_rxBuffer.Length);
-                Array.Clear(state.buffer, 0, StateObject.BufferSize);
-                m_rxBuffer = Array.Empty<byte>();
+                if (m_rxBuffer.Length > 0)
+                {
+                    //Debug.Log(string.Format("m_rxBuffer.Length: {0} bytes\nbuffer: {1}", m_rxBuffer.Length, BitConverter.ToString(m_rxBuffer)));
+                    //Debug.Log("Here 2");
+                    orcd(m_rxBuffer, m_rxBuffer.Length);
+                    m_rxBuffer = Array.Empty<byte>();
+                }
             }
 
-            //Array.Clear(state.buffer, 0, StateObject.BufferSize); // DELETE THIS IF MAKE TROUBLES
-            client.BeginReceive(state.buffer,//m_rxBuffer, 
-                    0,
-                    StateObject.BufferSize,//m_rxBufferSize, 
-                    0,
-                    new AsyncCallback(asyncReceiveCallback),
-                    state);
+            Array.Clear(state.buffer, 0, StateObject.BufferSize);
+            client_socket.BeginReceive( state.buffer,//m_rxBuffer, 
+                                        0,
+                                        StateObject.BufferSize,//m_rxBufferSize, 
+                                        0,
+                                        new AsyncCallback(asyncReceiveCallback),
+                                        state );
 
         }
         catch (ObjectDisposedException) // can occur when closing
@@ -270,12 +291,17 @@ public class XRAsyncTCPClient
         }
         catch (SocketException e)
         {
-            oecd("asyncReceiveCallback:" + e.ToString());
+            oecd("asyncReceiveCallback SocketException:" + e.ToString());
             //return false;
+        }
+        catch (ArgumentOutOfRangeException outOfRange)
+        {
+
+            Debug.Log(string.Format("asyncReceiveCallback ArgumentOutOfRangeException: {0}", outOfRange.Message));
         }
         catch (Exception e)
         {
-            oecd("asyncReceiveCallback:" + e.ToString());
+            oecd("asyncReceiveCallback Exception:" + e.ToString());
         }
 
     }
@@ -309,6 +335,12 @@ public class XRAsyncTCPClient
     // UTILS
     public static byte[] SplitByteArray(byte[] buffer, int index, int count)
     {
+        //Debug.Log(string.Format("buffersize {0} bytes \nindex: {1} \n count: {2}",buffer.Length,index,count));
+        if (count == 0)
+        {
+            //Debug.Log("Error here");
+            return Array.Empty<byte>();
+        }
         byte[] ret = new byte[count];
         Buffer.BlockCopy(buffer, index, ret, 0, count);
         return ret;

@@ -129,9 +129,9 @@ protected:
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   {
-                                    //std::cout << std::endl << "PARTICIPANT_UPDATE_ACK" << std::endl;
-                                    //ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
-				    //std::cout << std::endl << *upd << std::endl;
+                                    std::cout << std::endl << "<< PARTICIPANT_UPDATE_ACK" << std::endl;
+                                    ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
+				    std::cout << std::endl << *upd << std::endl;
 				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
                                   }
                                   break;

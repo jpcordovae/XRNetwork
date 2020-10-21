@@ -1,49 +1,35 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Text;
+using System.Xml;
+using UnityEditor;
 using UnityEngine;
-using System;
 
-public class XRNetworkPlayer : MonoBehaviour
+public class XRNetworkPlayer : XRNetworkObject
 {
-    // Start is called before the first frame update
-    private UInt64 m_participant_id;
-    public UInt64 participant_id { get { return m_participant_id; } set { m_participant_id = value; } }
-    private Vector3 m_reference_position = Vector3.forward;
-    private Quaternion m_reference_rotation = Quaternion.identity;
+    public List<XRNetworkDevice> m_devices = new List<XRNetworkDevice>();
 
-    private XRNetworkPlayer() { }
-
-    public XRNetworkPlayer(UInt64 _participant_id)
+    [SerializeField] public GameObject m_prefab;
+    public XRNetworkPlayer()
     {
-        m_participant_id = _participant_id;
+        objectType = EN_XRN_ObjectType.XRN_OT_PLAYER;
+        // m_prefab = PrefabUtility.InstantiatePrefab(;
     }
 
+    // Start is called before the first frame update
     void Start()
     {
-        
+        // fill the list of devices for the client
+        //m_prefab_path = AssetDatabase.GetAssetPath(m_prefab);
     }
 
     // Update is called once per frame
     void Update()
     {
-        
-    }
 
-    public void OnLeaveXRService()
-    { 
-        
-    }
-
-    public void XRServiceUpdate(string message)
-    {
-        string[] spltmsg = message.Split(';');
-        
-    }
-
-    // timed update
-    public void LocalUpdate()
-    { 
-        
     }
 
 }

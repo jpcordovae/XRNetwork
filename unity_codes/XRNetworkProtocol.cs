@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 
 public class XRNetworkProtocol
@@ -20,17 +22,14 @@ public class XRNetworkProtocol
         HANDSHAKE_STATISTICS_REQUEST_ACK,
         HANDSHAKE_PARTICIPANT_UPDATE,
         HANDSHAKE_PARTICIPANT_UPDATE_ACK,
-<<<<<<< HEAD
-=======
         PARTICIPANT_JOIN,
         PARTICIPANT_JOIN_ACK,
         MESSAGE,
         MESSAGE_ACK,
         PARTICIPANT_NEW,
         PARTICIPANT_NEW_ACK,
-        PARTICIPANT_DELETE,
-        PARTICIPANT_DELETE_ACK,
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
+        PARTICIPANT_LEAVE,
+        PARTICIPANT_LEAVE_ACK,
         PARTICIPANT_INFO_REQUEST,
         PARTICIPANT_INFO_REQUEST_ACK,
         PARTICIPANT_UPDATE,
@@ -42,68 +41,153 @@ public class XRNetworkProtocol
         CONTROL
     };
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public static int ST_XR_MESSAGE_HEADER_SIZE = 8; // size of the structure in bytes
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size=8*/)]
     public struct ST_XR_MESSAGE_HEADER
     {
         public UInt16 head;
         public UInt32 buffersize;
         public UInt16 payload_is_big_endian; // 0xFFFF for big endian and 0x0000 for little endian
+
+        public void Setup(UInt16 _head)
+        {
+            head = _head;
+            //buffersize = _buffersize;
+            //payload_is_big_endian = _payload_is_big_endian;
+        }
+
+        public byte[] ToArray()
+        {
+            var stream = new MemoryStream();
+            var writer = new BinaryWriter(stream);
+
+            writer.Write(this.head);
+            writer.Write(this.buffersize);
+            writer.Write(this.payload_is_big_endian);
+
+            return stream.ToArray();
+        }
+
+        public static ST_XR_MESSAGE_HEADER FromArray(byte[] bytes)
+        {
+            var reader = new BinaryReader(new MemoryStream(bytes));
+
+            var s = default(ST_XR_MESSAGE_HEADER);
+
+            s.head = reader.ReadUInt16();
+            s.buffersize = reader.ReadUInt32();
+            s.payload_is_big_endian = reader.ReadUInt16();
+
+            return s;
+        }
     }
 
-    public static int ST_XR_MESSAGE_HEADER_SIZE = 8; // size of the structure in bytes
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024*64*/)]
     public struct ST_RAW_MESSAGE
     {
         public ST_XR_MESSAGE_HEADER header;
-<<<<<<< HEAD
-        public byte[] buffer;
-    }
-
-    ST_RAW_MESSAGE build_raw_message(EN_RAW_MESSAGE_HEAD header, byte[] buffer, UInt32 buffersize)
-=======
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024*64 - 8)] public byte[] buffer;
+
+        public void Setup(UInt16 _head, byte[] _payload)
+        {
+            header.head = _head;
+            header.buffersize = (UInt32)_payload.Length;
+        }
+
+        public byte[] ToArray()
+        {
+            var stream = new MemoryStream();
+            var writer = new BinaryWriter(stream);
+
+            writer.Write(header.ToArray());
+            writer.Write(buffer);
+
+            return stream.ToArray();
+        }
+
+        public static ST_RAW_MESSAGE FromArray(byte[] _payload)
+        {
+            var reader = new BinaryReader(new MemoryStream(_payload));
+
+            var s = default(ST_RAW_MESSAGE);
+
+            s.header = ST_XR_MESSAGE_HEADER.FromArray(reader.ReadBytes(8));
+            s.buffer = reader.ReadBytes(1024 * 64 - 8);
+
+            return s;
+        }
     }
 
     /*ST_RAW_MESSAGE build_raw_message(EN_RAW_MESSAGE_HEAD header, byte[] buffer, UInt32 buffersize)
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     {
         ST_RAW_MESSAGE msg = new ST_RAW_MESSAGE();
         msg.header.head = (UInt16) header;
         msg.header.buffersize = buffersize;
         Buffer.BlockCopy(buffer, 0, msg.buffer, 0, (int)buffersize);
         return msg;
-<<<<<<< HEAD
-    }
-
-=======
     }*/
+
+    public static int ST_RAW_MESSAGE_SIZE = 65536;
+    public static int ST_RAW_MESSAGE_PAYLOAD_SIZE = 65528;
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size =8*/)]
+    public struct ST_PARTICIPANT_LEAVE
+    {
+        public UInt64 participant_id; 
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size =8*/)]
+    public struct ST_PARTICIPANT_LEAVE_ACK
+    {
+        public UInt64 participant_id;
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1 /*, Size =1024*20+8+2*/)]
+    public struct ST_PARTICIPANT_NEW
+    {
+        public UInt64 participant_id;
+        public UInt32 descriptor_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] descriptor_buffer;
+    };
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1),Serializable]
+    public struct ST_PARTICIPANT_NEW_ACK
+    {
+        UInt64 participant_id;
+    };
 
     /// <sumary>
     /// PARTICIPANT_JOIN
     /// </sumary>
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public static int ST_PARTICIPANT_JOIN_SIZE = 1024 * 10 + 4 + 1 + 1 + 8;
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024 * 10 + 4 + 1 + 1 + 8*/)]
     public struct ST_PARTICIPANT_JOIN
     {
         public UInt64 participant_id;
         public UInt16 max_data_rate; // max message frequency [messages/s] supported by the service
         public UInt16 allow_asynchronous_messages; // polling or interrupt data
-        public UInt16 message_buffersize;
+        public UInt32 message_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 10)] public byte[] message_buffer;
     }
 
     /// <sumary>
     /// PARTICIPANT_JOIN_ACK
     /// </sumary>
+    public static int ST_PARTICIPANT_JOIN_ACK_SIZE = 1024 * 20 + 8 + 4;
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024 * 20 + 8 + 2*/)]
+    public struct ST_PARTICIPANT_JOIN_ACK
+    {
+        public UInt64 participant_id;
+        public UInt32 json_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] json_buffer;
+    }
 
-
-
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     /// <summary>
     /// HADNSHAKE HELLO
     /// </summary>
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 8 + 8 + 8 + 4 + 1024*/)]
     public struct ST_HANDSHAKE_HELLO
     {
         public UInt64 service_id;
@@ -114,29 +198,23 @@ public class XRNetworkProtocol
     };
 
     /// <summary>
-<<<<<<< HEAD
-    /// HADNSHAKE HELLO ACK
-=======
     /// HADNSHAKE HELLO ACK (1042 bytes - 0x0412 hexa)
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 8 + 8 + 4 + 1024 * 20*/)]
     public struct ST_HANDSHAKE_HELLO_ACK
     {
         public UInt64 participant_id;
         public UInt64 client_timestamp;
-<<<<<<< HEAD
-        public UInt32 participant_name_buffersize;
-=======
-        public UInt16 participant_name_buffersize;
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] participant_name;
+        //public UInt16 participant_name_buffersize;
+        //[MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] participant_name;
+        public UInt32 configuration_buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] participant_buffer;
     };
 
     /// <summary>
     ///  HADNSHAKE CREDENTIALS
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 4 + 1024 * 20*/)]
     public struct ST_HANDSHAKE_CREDENTIALS
     {
         public UInt32 server_certificate_buffersize;
@@ -146,61 +224,50 @@ public class XRNetworkProtocol
     /// <summary>
     /// HADNSHAKE CREDENTIALS ACK
     /// </summary>
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 8 + 2 + 1024 + 2 + 1024 + 2 + 1024 * 20*/)]
     public struct ST_HANDSHAKE_CREDENTIALS_ACK
     {
         public UInt64 participant_id;
-<<<<<<< HEAD
-        public UInt32 login_buffersize;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] login_buffer;
-        public UInt32 password_buffersize;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] password_buffer;
-        public UInt32 participant_certificate_buffersize;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] participant_certificate_buffer;
-=======
         public UInt16 login_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] login_buffer;
         public UInt16 password_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public byte[] password_buffer;
         public UInt16 participant_certificate_buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024*20)] public byte[] participant_certificate_buffer;
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     };
 
     /// <summary>
     /// PARTICIPANT UPDATE
     /// </summary>
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public static int ST_PARTICIPANT_UPDATE_SIZE = 1024 * 20 + 4 + 8 + 8 + 8;
+    public static int ST_PARTICIPANT_UPDATE_PAYLOAD_SIZE = 1024 * 20;
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024 * 20 + 4 + 8 + 8 + 8*/)]
     public struct ST_PARTICIPANT_UPDATE
     {
-<<<<<<< HEAD
-        public UInt64 dt_ms;
-        public UInt16 bool_automatic_update;
-=======
         public UInt64 participant_id;
         public UInt64 reception_timestamp;
         public UInt64 deliver_timestamp;
-        public UInt16 buffersize;
+        public UInt32 buffersize;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] buffer;
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     };
 
     /// <summary>
     /// PARTICIPANT_UPDATE_ACK
     /// </summary>
+    
+    public static int ST_PARTICIPANT_UPDATE_ACK_LENGTH = 20500;
+    public static int ST_PARTICIPANT_UPDATE_ACK_PAYLOAD_LENGTH = 20480;
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024*20+ 4 + 8 + 8*/)]
     public struct ST_PARTICIPANT_UPDATE_ACK
     {
-<<<<<<< HEAD
-        public UInt64 timestamp;
-=======
+        public UInt64 participant_id;
         public UInt64 origin_timestamp;
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
+        public UInt32 buffersize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 20)] public byte[] buffer;
     };
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024 + 512 + 8 + 8*/)]
     public struct ST_PARTICIPANT_INFO
     {
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024)] public string name;
@@ -209,7 +276,7 @@ public class XRNetworkProtocol
         public UInt64 server_id;
     };
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024 * 60 +2+8+8+8+8*/)]
     public struct ST_PARTICIPANT_MESSAGE
     {
         public UInt64 origin_timestamp;
@@ -217,17 +284,28 @@ public class XRNetworkProtocol
         public Int64 position_x, position_y, position_z;
         public Int64 rot_w, rot_i, rot_j, rot_k;
         public UInt16 text_message_size; // in UTF-8
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 10124 * 64 - 8 * 6)] public string text_message;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 1024 * 60)] public string text_message;
     };
 
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    [StructLayout(LayoutKind.Sequential, Pack = 1/*, Size = 1024*60 + 8 + 8 + 2*/)]
     public struct ST_MESSAGE
     {
         public UInt64 participant_id;
         public UInt64 timestamp; // in ms since epoch
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 64)] public char[] message;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1024 * 60)] public char[] message;
         public UInt16 size;
     };
+
+    public static ST_RAW_MESSAGE BuildRawMessage(UInt16 head, byte[] payload, UInt32 payload_buffersize)
+    {
+        ST_RAW_MESSAGE raw_message = new ST_RAW_MESSAGE();
+        raw_message.header.head = head;
+        raw_message.header.payload_is_big_endian = 0x0000;
+        raw_message.header.buffersize = payload_buffersize;
+        raw_message.buffer = new byte[ST_RAW_MESSAGE_PAYLOAD_SIZE];
+        Buffer.BlockCopy(payload,0,raw_message.buffer,0,(int)payload_buffersize);
+        return raw_message;
+    }
 
     public static object GetObjectFromBytes(byte[] buffer, int buffersize, Type objType)
     {
@@ -262,12 +340,10 @@ public class XRNetworkProtocol
         return obj;
     }
 
-<<<<<<< HEAD
-=======
     public static byte[] GetBytes<T>(T str, int size)
     {
         //int size = Marshal.SizeOf(str);
-        if (size == 0) Console.WriteLine("PROBLEMA AQUI !!!!");
+        if (size == 0 || str == null) Console.WriteLine("PROBLEMA AQUI !!!!");
         byte[] arr = new byte[size];
         GCHandle h = default(GCHandle);
         try
@@ -291,7 +367,6 @@ public class XRNetworkProtocol
         return GetBytes<T>(str,size);
     }
 
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
     public static T ByteArrayToStructure<T>(byte[] bytes) where T : struct 
     {
         var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
@@ -305,11 +380,7 @@ public class XRNetworkProtocol
         int size = Marshal.SizeOf(strc);
         byte[] arr = new byte[size];
         IntPtr ptr = Marshal.AllocHGlobal(size);
-<<<<<<< HEAD
-        Marshal.StructureToPtr(strc, ptr, true);
-=======
         Marshal.StructureToPtr(strc, ptr, false);
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         Marshal.Copy(ptr, arr, 0, size);
         Marshal.FreeHGlobal(ptr);
         return arr;
@@ -320,29 +391,43 @@ public class XRNetworkProtocol
         int size = object_size;
         byte[] arr = new byte[size];
         IntPtr ptr = Marshal.AllocHGlobal(size);
-<<<<<<< HEAD
-        Marshal.StructureToPtr(strc, ptr, true);
-=======
         Marshal.StructureToPtr(strc, ptr, false);
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
         Marshal.Copy(ptr, arr, 0, size);
         Marshal.FreeHGlobal(ptr);
         return arr;
     }
 
-<<<<<<< HEAD
-=======
     public static byte[] ConcatByteArrays(byte[] arr1, byte[] arr2)
     {
         int lenght = arr1.Length + arr2.Length;
         if (lenght == 0) return Array.Empty<byte>();
         byte[] tmp = new byte[lenght];
-        Array.Copy(arr1, tmp, arr1.Length);
-        Array.Copy(arr2, 0, tmp, arr1.Length, arr2.Length);
+        Buffer.BlockCopy(arr1, 0, tmp, 0, arr1.Length);
+        Buffer.BlockCopy(arr2, 0, tmp, arr1.Length, arr2.Length);
         return tmp;
     }
 
->>>>>>> f506d984b9bb8dbb581bdd91f7aa154af3c864b1
+    public static byte[] Serialize<T>(T s) where T : struct
+    {
+        var size = Marshal.SizeOf(typeof(T));
+        var array = new byte[size];
+        var ptr = Marshal.AllocHGlobal(size);
+        Marshal.StructureToPtr(s, ptr, true);
+        Marshal.Copy(ptr, array, 0, size);
+        Marshal.FreeHGlobal(ptr);
+        return array;
+    }
+
+    public static T Deserialize<T>(byte[] array) where T : struct
+    {
+        var size = Marshal.SizeOf(typeof(T));
+        var ptr = Marshal.AllocHGlobal(size);
+        Marshal.Copy(array, 0, ptr, size);
+        var s = (T)Marshal.PtrToStructure(ptr, typeof(T));
+        Marshal.FreeHGlobal(ptr);
+        return s;
+    }
+
     /*object ByteArrayToStructure(byte[] bytearray, object structureObj, int position)
     {
         int length = Marshal.SizeOf(structureObj);
