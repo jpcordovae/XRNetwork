@@ -125,8 +125,7 @@ private:
   {
     //size_t cap = read_buffer_->capacity();
     //std::cout << "Capacity: " << std::to_string(cap) << " bytes\r\n";
-    boost::asio::async_read(
-			    socket_,
+    boost::asio::async_read(socket_,
 			    boost::asio::buffer(read_buffer_->data(),read_buffer_->capacity()),
 			    [this](boost::system::error_code ec, size_t bytes_transferred) {
 			      if (!ec)
@@ -219,6 +218,18 @@ private:
 					std::cout << "<< PARTICIPANT_JOIN" << std::endl
 						  << *pj << std::endl;
 					participant_id_ = pj->participant_id;// the only important hting on this message
+					
+					ST_PARTICIPANT_JOIN_ACK pjack;
+					pjack.participant_id = participant_id_;
+					std::string json_message("{\"m_position\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"m_rotation\":{\"x\":0.0,\"y\":0.0,\"z\":0.0,\"w\":0.0},\"m_name\":\"Pedro Urdemales\",\"m_id\":14514284786278117030,\"m_id_hex\":\"C96D191CF6F6AEA6\",\"m_prefab_path\":\"Assets/Resources/XRNetwork/Characters/MarkerMan.fbx\",\"m_auto_update\":false,\"objectType\":4,\"m_devices\":[],\"m_prefab\":{\"instanceID\":13558}}");
+					pjack.json_buffersize = (uint32_t)json_message.length();
+					memcpy(pjack.json_buffer,json_message.c_str(),json_message.length());
+
+					XRMessage_ptr msg(new XRMessage((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK,
+									(std::byte*)&pjack,
+									sizeof(ST_PARTICIPANT_JOIN_ACK)));
+					
+					write_byte(msg);
 					
 					begin_participant_update();
 				      }

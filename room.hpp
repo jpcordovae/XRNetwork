@@ -49,8 +49,6 @@ public:
     memcpy(participant->info_ptr_->ipv4_ip, participant->IP.c_str(), participant->IP.size());
     participants_.insert(participant);
     signal_new_participant(participant->m_id);
-    //init_new_participant(participant_m_id);
-    //send_list_of_players(participant->m_id);
   }
   
   void on_new_participant_room(const uint64_t np)
@@ -63,12 +61,6 @@ public:
     nr_participant_ptr np = get_participant_ptr(participant_id);
     new_paticipant_to_all(participant_id);
     send_list_of_players(np);
-    
-    //if(np.get()!=nullptr){
-    
-      //std::cout << "participant not found" << std::endl;
-      //return;
-      //}
   }
   
   /*warn to all about a new participant in the room*/
@@ -84,12 +76,8 @@ public:
     XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
 		  (std::byte*)&newp,
 		  (uint32_t)sizeof(ST_PARTICIPANT_NEW));
-    
-    //std::cout << "PARTICIPANT_NEW" << std::endl;
-    //print_buffer(msg.data(),60);
-    //std::cout << std::endl;
+    std::cout << ">> PARTICIPANT_NEW " << std::hex << np << " to all." << std::endl;  
     deliver_to_all_except_to_one(msg.data(),msg.size(),np);
-    //}
   }
   
   void send_list_of_players(nr_participant_ptr ptr) // send list of participants to a new player
@@ -109,6 +97,7 @@ public:
       XRMessage msg((uint16_t)EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW,
 		    (std::byte*)&newp,
 		    (uint32_t)sizeof(ST_PARTICIPANT_NEW));
+      
       ptr->deliver_byte(msg.data(),msg.size());
     }
     
@@ -144,7 +133,6 @@ public:
   void leave(nr_participant_ptr participant)
   {
     try {
-      //std::cout << "participant " << participant->m_id << " leaving room" << std::endl;
       uint64_t id = participant->m_id;
       signal_participant_leave(id);
       participants_.erase(participant);
@@ -154,19 +142,13 @@ public:
 		    (std::byte*)&pleave,
 		    (uint32_t)sizeof(ST_PARTICIPANT_LEAVE));
       deliver_to_all(msg.data(),msg.size());
+      std::cout << ">> ST_PARTICIPANT_LEAVE " << std::hex << participant->m_id << std::endl;
     }
     catch (std::exception & e){
       std::cout << "leave exception catched" << e.what() << std::endl;
       // log exception
     }
   }
-
-  /*void deliver_byte(std::byte *buffer, size_t buffersize)
-  {
-    if (broadcast_participants_messages){
-      deliver_to_all(buffer,buffersize);
-    }
-    }*/
 
   void deliver_to_all(std::byte *buffer, size_t buffersize)
   {

@@ -116,39 +116,42 @@ protected:
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK):
 				  {
-				    //std::cout << std::endl << "PARTICIPANT_JOIN_ACK" << std::endl;
-				    ST_PARTICIPANT_JOIN_ACK *pack = static_cast<ST_PARTICIPANT_JOIN_ACK*>((void*)message_ptr->payload());
+				    ST_PARTICIPANT_JOIN_ACK *pjack = static_cast<ST_PARTICIPANT_JOIN_ACK*>((void*)message_ptr->payload());
+				    std::cout << std::endl << "<< PARTICIPANT_JOIN_ACK" << std::endl << *pjack << std::endl;
 				    m_descriptor.clear();
 				    // save descriptor of the participant, is client platform dependent, for the server is a bunch of bytes
-				    std::copy(pack->json_buffer,pack->json_buffer+pack->json_buffersize,std::back_inserter(m_descriptor));
-				    //std::cout << *pack << std::endl;
-				    m_room.init_new_participant(pack->participant_id);
+				    std::copy(pjack->json_buffer,pjack->json_buffer+pjack->json_buffersize,std::back_inserter(m_descriptor));
+				    m_room.init_new_participant(pjack->participant_id);
 				  }
 				  break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_NEW_ACK):
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   {
-                                    std::cout << std::endl << "<< PARTICIPANT_UPDATE_ACK" << std::endl;
-                                    ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
-				    std::cout << std::endl << *upd << std::endl;
+                                    //std::cout << std::endl << "<< PARTICIPANT_UPDATE_ACK" << std::endl;
+                                    //ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
+				    //std::cout << std::endl << *upd << std::endl;
 				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
                                   }
                                   break;
 				case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_LEAVE_ACK):
 				  {
 				    //ST_PARTICIPANT_LEAVE_ACK *leave = static_cast<ST_PARTICIPANT_LEAVE_ACK*>((void*)message_ptr->payload());
-				    m_room.disconnect_participant(m_id);
+				    //m_room.disconnect_participant(m_id);
+				    m_room.leave(shared_from_this());
 				  }
 				  break;
                                 default:
-                                  disconnect();
-                                  break;
+                                  //disconnect();
+				  //m_room.disconnect_participant(m_id);
+				  m_room.leave(shared_from_this());
+				  break;
                                 }
                                 do_read_byte();
                               }
                               else {
-                                m_room.leave(shared_from_this());
+                                //m_room.leave(shared_from_this());
+				do_close();
                               }
                             });
   }
@@ -176,6 +179,7 @@ private:
           //trace("Closing2 failed: ", errorcode.message());
           std::cerr << "nr_session do_close closing socket error: " << errorcode.message();
         }
+	m_room.leave(shared_from_this());
       }
     } catch(std::exception &e) {
       std::cerr << e.what();
@@ -233,23 +237,18 @@ private:
                                                  btp->size()),
 			                         [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
 						   if (!ec) {
-						     if(bytes_writen != 65536)
-						       std::cout << "ERROR: " << std::to_string(bytes_writen) << " bytes written" << std::endl;
-						     else
-						       std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
-						     
 						     m_deque_write_buffer_mutex.lock();
 						     bool queue_is_empty = deque_write_buffer_.empty();
 						     m_deque_write_buffer_mutex.unlock();
-
 						     //deque_write_buffer_.pop_front();
 						     if (!queue_is_empty) {
 						       do_write_byte();
 						     }
 						   }
 						   else {
-						     std::cerr << "nr_session:do_write error" << std::endl;
-						     m_room.leave(shared_from_this());
+						     std::cerr << "session.hpp:do_write error at line " << __LINE__ << std::endl;
+						     //m_room.leave(shared_from_this());
+						     do_close();
 						   }
 						 });
     

@@ -20,10 +20,7 @@ public:
 
   void start()
   {
-    //nr_session::start();
     IP = m_socket_ptr->remote_endpoint().address().to_string();
-    //m_room.join(shared_from_this());
-    //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     do_start_handshake();
   }
 
@@ -107,7 +104,7 @@ private:
     boost::asio::async_read(*m_socket_ptr,
                             boost::asio::buffer(read_buffer_.data(), read_buffer_.capacity()),
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
-                              if (!ec) {
+                              if (!ec /*|| ec == boost::asio::error::eof*/) {
 
                                 std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << std::endl;
                                 XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
