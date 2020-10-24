@@ -20,12 +20,12 @@ public class XRNetworkLocalPlayer : XRNetworkPlayer
     void Update()
     {
         long now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-        if (XRNetworkManager.Instance.on_room && (now-timestamp) > 100)
+        XRNetworkManager NM = XRNetworkManager.Instance;
+        if ( NM.IsJoined() && (now-timestamp) > 100)
         {
             XRNetworkObject NO = GetComponent<XRNetworkObject>();
             NO.m_position = transform.position;
             NO.m_rotation = transform.rotation;
-            XRNetworkManager NM = XRNetworkManager.Instance;
             
             XRNetworkProtocol.ST_PARTICIPANT_UPDATE_ACK pack = new XRNetworkProtocol.ST_PARTICIPANT_UPDATE_ACK();
             pack.participant_id = m_id;
@@ -40,9 +40,8 @@ public class XRNetworkLocalPlayer : XRNetworkPlayer
             Array.Copy(json_array, pack.buffer, json_array.Length);
             
             byte[] pack_array = XRNetworkProtocol.GetBytes(pack,XRNetworkProtocol.ST_PARTICIPANT_UPDATE_ACK_LENGTH);
-            NM.QueueMessageToService(pack_array);
+            NM.send_message_to_server(pack_array);
             timestamp = now;
-            
         }
     }
 }

@@ -9,6 +9,8 @@ using Unity.Collections;
 using UnityEngine.UI;
 using UnityEditor;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 public class XRNetworkManager : MonoBehaviour
 {
@@ -23,7 +25,7 @@ public class XRNetworkManager : MonoBehaviour
 
     public static XRNetworkManager Instance
     {
-        get 
+        get
         {
             if (m_instance == null)
             {
@@ -52,10 +54,22 @@ public class XRNetworkManager : MonoBehaviour
     [ReadOnly] public UInt16 m_max_data_rate;
     public string m_login = "login";
     public string m_password = "password";
-    static private bool b_on_room;
+    private readonly object joined_lock_object = new object();
+    static private bool m_joined;
 
-    public bool on_room {
-        get { return b_on_room; }
+    public static bool joined {
+        get {
+            bool j;
+            Thread.MemoryBarrier();
+            j = m_joined;
+            Thread.MemoryBarrier();
+            return j;
+        }
+        set {
+            Thread.MemoryBarrier();
+            m_joined = value;
+            Thread.MemoryBarrier();
+        }
     }
 
     public void SetHost(string _host)
@@ -70,13 +84,12 @@ public class XRNetworkManager : MonoBehaviour
         m_port = Convert.ToUInt16(_port);
     }
 
-    //private ConcurrentDictionary<UInt64, byte[]> xrn_devices_messages = new ConcurrentDictionary<ulong, byte[]>();
-    private ConcurrentQueue<XRNetworkProtocol.ST_RAW_MESSAGE> pending_updates = new ConcurrentQueue<XRNetworkProtocol.ST_RAW_MESSAGE>();
-    private ConcurrentQueue<byte[]> to_tcp_service_queue = new ConcurrentQueue<byte[]>();
+    private static ConcurrentQueue<XRNetworkProtocol.ST_RAW_MESSAGE> pending_input_message_queue = new ConcurrentQueue<XRNetworkProtocol.ST_RAW_MESSAGE>();
+    private ConcurrentQueue<byte[]> pending_output_messages_queue = new ConcurrentQueue<byte[]>();
 
-    public void QueueMessageToService(byte [] msg)
+    public void send_message_to_server(byte[] barray)
     {
-        to_tcp_service_queue.Enqueue(msg);
+        pending_output_messages_queue.Enqueue(barray);
     }
 
     GameObject GetGameObjectbyID(UInt64 ID)
@@ -84,20 +97,16 @@ public class XRNetworkManager : MonoBehaviour
         foreach (Transform child in transform)
         {
             XRNetworkObject myGO = child.GetComponent<XRNetworkObject>();
-            if ( myGO != null)
-                if(myGO.m_id == ID)
+            if (myGO != null)
+                if (myGO.m_id == ID)
                     return child.gameObject;
         }
         return null;
     }
 
-    private static XRAsyncTCPClient m_tcpClient = XRAsyncTCPClient.GetInstance();
-    private static UInt32 m_tcp_buffersize; // actual buffer size
-    private static byte[] m_tcp_buffer = new byte[] { }; // temporal tcp buffer (before transform to a message)
-    private static UInt16 m_tcp_head; // header protocol
-    private static UInt16 m_payload_big_endian;
+    //private static XRAsyncTCPClient m_tcpClient = XRAsyncTCPClient.GetInstance();
     private static string dbgText;
-    private int m_dt_ms = 25; // ms 
+    private int m_dt_ms = 100; // ms 
     private long ms_last_timestamp;
 
     void Start()
@@ -106,114 +115,77 @@ public class XRNetworkManager : MonoBehaviour
         GameObject.Find("LOCAL_PARTICIPANT").GetComponent<XRNetworkObject>().SetPlayerName(GameObject.Find("InputFieldName").GetComponent<InputField>().text);
         player_descriptor_json = Save<XRNetworkObject>(m_local_participant_go);
         ms_last_timestamp = 0;
-        b_on_room = false;
+        joined = false;
+    }
+
+    private void OnDisable()
+    {
+        XRNetworkClient.xrn_disconnect();
+    }
+
+    private void OnDestroy()
+    {
+        XRNetworkClient.xrn_disconnect();
+    }
+
+    public void ConnectToService()
+    {
+        XRNetworkClient.xrn_start_service_thread();
+        RegisterCallbacks();
+        XRNetworkClient.xrn_connect("192.168.1.6", "1080", "login", "password");
+    }
+
+    public void DisconnectFromService()
+    {
+        XRNetworkClient.xrn_disconnect();
     }
 
     // this doesn't run on the main thread, so... it sucks...
     private static void OnConnect()
     {
-        //Debug.Log("OnConnect triggered, waiting for hello message");
-        //GameObject.Find("ConnectButton").GetComponentInChildren<Text>().text = "Disconnect";
-        m_tcpClient.AsyncReceive();
+        
     }
 
     private static void OnDisconnect()
     {
-        Debug.Log("OnDisconnect triggered");
-        b_on_room = false;
+        joined = false;
     }
 
-    public void OnReceive(byte[] buffer, int buffersize)
+    public bool IsJoined()
     {
-        if (m_tcp_buffer.Length != 0)
-            m_tcp_buffer = XRNetworkProtocol.ConcatByteArrays(m_tcp_buffer, buffer);
-        else
-            m_tcp_buffer = buffer;
+        return joined;
+    }
 
-        // check minimum size
-        if (m_tcp_buffer.Length < XRNetworkProtocol.ST_XR_MESSAGE_HEADER_SIZE) return;
+    void OnRoom()
+    {
+        Debug.Log("<< JOINED");
+        joined = true;
+    }
 
-        //get the headers
-        m_tcp_head = BitConverter.ToUInt16(m_tcp_buffer, 0);
-        m_tcp_buffersize = BitConverter.ToUInt32(m_tcp_buffer, 2);
-        m_payload_big_endian = BitConverter.ToUInt16(m_tcp_buffer, 6);
-
-        /*Debug.Log(  string.Format("OnReceive {0} bytes: \n",buffersize) + 
-                    buffer.Length.ToString() + 
-                    string.Format("\nm_tcp_header: {0}\nm_tcp_buffersize: {1}\n",m_tcp_header,m_tcp_buffersize) +
-                    BitConverter.ToString(buffer));*/
-
-        // check the size of the payload be as shuould be
-        if (m_tcp_buffer.Length >= m_tcp_buffersize + XRNetworkProtocol.ST_XR_MESSAGE_HEADER_SIZE)
+    static void OnNewMessage(UInt16 head, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)]  byte[] buffer, UInt32 buffersize)
+    {
+        try
         {
-            if (m_tcp_head == 0 /*|| m_tcp_buffersize < 1024*/) return;
-
-            byte[] payload = XRAsyncTCPClient.SplitByteArray(m_tcp_buffer, 
-                                                             XRNetworkProtocol.ST_XR_MESSAGE_HEADER_SIZE, 
-                                                             (int)m_tcp_buffersize);
-
-            //ProcessMessage(m_tcp_header, m_tcp_buffersize, payload);
             XRNetworkProtocol.ST_RAW_MESSAGE rw = new XRNetworkProtocol.ST_RAW_MESSAGE();
-            rw.header.head = m_tcp_head;
-            rw.header.buffersize = m_tcp_buffersize;
-            rw.header.payload_is_big_endian = 0;
-            rw.buffer = payload;
-            pending_updates.Enqueue(rw);
-
-            if (m_tcp_buffer.Length > m_tcp_buffersize + XRNetworkProtocol.ST_XR_MESSAGE_HEADER_SIZE)
-            {
-                //Debug.Log("HERE");
-                int total_length = (int)m_tcp_buffersize + XRNetworkProtocol.ST_XR_MESSAGE_HEADER_SIZE;
-                // not sure if I can do this on a single call, if the parameter is copied, then yes, but not sure
-                byte[] tmp = XRAsyncTCPClient.SplitByteArray(m_tcp_buffer,
-                                                             total_length,
-                                                             (int)m_tcp_buffer.Length - total_length);
-                //m_tcp_buffer = Array.Empty<byte>();
-                m_tcp_buffer = tmp;
-            }
-
-            m_tcp_buffer = Array.Empty<byte>();
-        }
-    }
-
-    private static void OnSend()
-    {
-        //Debug.Log("OnSend triggered");
-    }
-
-    void OnDestroy()
-    {
-        if (m_tcpClient != null)
-            if (m_tcpClient.IsConnected)
-                m_tcpClient.Disconnect();
-    }
-
-    private static void OnError(string msg)
-    {
-        Debug.LogError(msg);
-    }
-
-    public void Connect()
-    {
-        UpdateVariablesFromCanvas();
-        RegisterCallbacks();
-        if (m_tcpClient == null)
+            //rw = (XRNetworkProtocol.ST_RAW_MESSAGE) Marshal.PtrToStructure(pMsg, typeof(XRNetworkProtocol.ST_RAW_MESSAGE));
+            rw.header.head = head;
+            rw.header.buffersize = buffersize;
+            rw.buffer = new byte[XRNetworkProtocol.ST_RAW_MESSAGE_PAYLOAD_SIZE];
+            Debug.Log(string.Format("<< NEW MESSAGE\nhead: {0}\nbuffersize: \n", rw.header.head.ToString(), rw.header.buffersize.ToString()));
+            Buffer.BlockCopy(buffer, 0, rw.buffer, 0, (int)rw.header.buffersize);
+            pending_input_message_queue.Enqueue(rw);
+        } catch (Exception e)
         {
-            Debug.LogError("m_tcpClient is null");
-        }
-        else
-        {
-            m_tcpClient.Connect(m_host, (int)m_port);
+            Debug.Log(string.Format("{0} Exception caught.", e));
         }
     }
 
     private void RegisterCallbacks()
     {
-        m_tcpClient.RegisterCallbackOnConnect(OnConnect);
-        m_tcpClient.RegisterCallbackOnDisconnect(OnDisconnect);
-        m_tcpClient.RegisterCallbackOnReceive(OnReceive);
-        m_tcpClient.RegisterCallbackOnSend(OnSend);
-        m_tcpClient.RegisterCallbackOnError(OnError);
+        XRNetworkClient.xrn_set_on_connect_callback(OnConnect);
+        XRNetworkClient.xrn_set_on_disconect_callback(OnDisconnect);
+        XRNetworkClient.xrn_set_on_new_message_callback(OnNewMessage);
+        XRNetworkClient.xrn_set_on_room_callback(OnRoom);
     }
 
     private static void RecursiveFindDevices(Transform parent, List<GameObject> list)
@@ -233,34 +205,29 @@ public class XRNetworkManager : MonoBehaviour
         try
         {
             XRNetworkProtocol.ST_RAW_MESSAGE raw = new XRNetworkProtocol.ST_RAW_MESSAGE();
-            //Debug.Log("in queue: " + pending_updates.Count.ToString() + ", out queue: " + to_tcp_service_queue.Count.ToString());
-            /*int index = 0;*/
-            while (pending_updates.TryDequeue(out raw) /*&& index<1000*/)
+            while (pending_input_message_queue.TryDequeue(out raw))
             {
-                if (raw.buffer != null)
-                    ProcessMessage(raw.header.head, raw.header.buffersize, raw.buffer);
+                Debug.Log("Processing Message");
+                ProcessMessage(raw.header.head, raw.buffer, raw.header.buffersize);
             }
 
-            if (b_on_room)
+            if (m_joined)
             {
                 long ms_timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
                 if (ms_timestamp - ms_last_timestamp > m_dt_ms)
                 {
                     byte[] barray = new byte[] { };
-                    while (to_tcp_service_queue.TryDequeue(out barray))
+                    //XRNetworkProtocol.ST_RAW_MESSAGE msg = new XRNetworkProtocol.ST_RAW_MESSAGE();
+                    while (pending_output_messages_queue.TryDequeue(out barray))
                     {
-                        XRNetworkProtocol.ST_RAW_MESSAGE msg = new XRNetworkProtocol.ST_RAW_MESSAGE();
-                        msg.header.head = (UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_UPDATE_ACK;
-                        msg.header.payload_is_big_endian = 0x0000;
-                        msg.header.buffersize = (UInt32)barray.Length;
-                        //Debug.Log("msg.header.buffersize: " + barray.Length.ToString());
-                        msg.buffer = new byte[XRNetworkProtocol.ST_RAW_MESSAGE_PAYLOAD_SIZE];
-                        Array.Clear(msg.buffer, 0, XRNetworkProtocol.ST_RAW_MESSAGE_PAYLOAD_SIZE);
-                        Array.Copy(barray, msg.buffer, barray.Length);
-                        Debug.Log(">> PARTICIPANT_UPDATE_ACK");
+                        byte[] msg_buffer = new byte[XRNetworkProtocol.ST_RAW_MESSAGE_PAYLOAD_SIZE];
+                        Array.Copy(barray, msg_buffer, barray.Length);
+                        //Debug.Log(">> PARTICIPANT_UPDATE_ACK");
                         //Debug.Log(  "ms_timestamp: " + ms_timestamp.ToString() + ", ms_last_timestamp: " + ms_last_timestamp.ToString() + ", dt: " + (ms_timestamp - ms_last_timestamp).ToString() + "\nsize: " + msg.header.buffersize.ToString());
-                        byte[] msgarray = XRNetworkProtocol.GetBytes(msg, XRNetworkProtocol.ST_RAW_MESSAGE_SIZE);
-                        m_tcpClient.AsyncSend(msgarray, msgarray.Length);
+                        //byte[] msgarray = XRNetworkProtocol.GetBytes(msg, XRNetworkProtocol.ST_RAW_MESSAGE_SIZE);
+                        XRNetworkClient.xrn_send_message((UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_UPDATE_ACK,
+                                                         msg_buffer,
+                                                         (UInt32)msg_buffer.Length);
                     }
                     ms_last_timestamp = ms_timestamp;
                 }
@@ -298,157 +265,72 @@ public class XRNetworkManager : MonoBehaviour
         return null;
     }
 
-    private void ProcessMessage(UInt16 header, UInt32 buffersize, byte[] payload)
+    private void ProcessMessage(UInt16 header, byte[] payload, UInt32 buffersize)
     {
-        //if (BitConverter.IsLittleEndian)
-        //{
-        //    m_tcp_header = (UInt16)IPAddress.NetworkToHostOrder((Int16)h);
-        //    m_tcp_buffersize = (UInt32)IPAddress.NetworkToHostOrder((Int32)bs);
-        //}
-
-        /*
-        if (origin_is_big_endian == 0xFFFF)
-        {
-            Array.Reverse(payload,0,payload.Length);
-        }
-        */
-        //string tmp = BitConverter.ToString(payload);
         GameObject GO = GameObject.Find("LOCAL_PARTICIPANT");
         XRNetworkObject NO = GO.GetComponent<XRNetworkObject>() as XRNetworkObject;
         
         switch ((XRNetworkProtocol.EN_RAW_MESSAGE_HEAD)header)
         {
-            case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.HANDSHAKE_HELLO:
-                XRNetworkProtocol.ST_HANDSHAKE_HELLO st_hello = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_HANDSHAKE_HELLO>(payload);
-                m_service_name = Encoding.UTF8.GetString(st_hello.service_name_buffer);
-                m_service_id = st_hello.service_id;
-                m_participant_id_number = st_hello.participant_id;
-                m_participant_id = st_hello.participant_id.ToString("X");
-                m_service_timestamp = st_hello.service_timestamp;
-                // instantiate hello_ack
-                XRNetworkProtocol.ST_HANDSHAKE_HELLO_ACK hello_ack = new XRNetworkProtocol.ST_HANDSHAKE_HELLO_ACK();
-                hello_ack.participant_id = m_participant_id_number;
-                hello_ack.client_timestamp = m_tcpClient.UTCTiemstampSinceEpoch();
-                hello_ack.participant_buffer = new byte[1024 * 20];
-                Array.Clear(hello_ack.participant_buffer, 0, 1024 * 20);
-                byte[] json_array = Encoding.UTF8.GetBytes(player_descriptor_json);
-                Array.Copy(json_array, hello_ack.participant_buffer, json_array.Length);
-                byte[] byte_hello_ack = XRNetworkProtocol.GetBytes<XRNetworkProtocol.ST_HANDSHAKE_HELLO_ACK>(hello_ack);
-                XRNetworkProtocol.ST_RAW_MESSAGE rmsg = XRNetworkProtocol.BuildRawMessage((UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.HANDSHAKE_HELLO_ACK,
-                                                                                          byte_hello_ack,
-                                                                                          (UInt32)byte_hello_ack.Length);
-                m_tcpClient.AsyncSend(rmsg.ToArray());
-                break;
-            case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.HANDSHAKE_CREDENTIALS:
-                //dbgText += "HANDSHAKE_CREDENTIALS";
-                XRNetworkProtocol.ST_HANDSHAKE_CREDENTIALS hcred = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_HANDSHAKE_CREDENTIALS>(payload);
-                dbgText = "";
-                // HADNSHAKE CREDENTIALS ACK
-                XRNetworkProtocol.ST_HANDSHAKE_CREDENTIALS_ACK ack = new XRNetworkProtocol.ST_HANDSHAKE_CREDENTIALS_ACK();
-                ack.login_buffer = new byte[1024];
-                ack.password_buffer = new byte[1024];
-                ack.participant_certificate_buffer = new byte[20 * 1024];
-
-                ack.login_buffersize = (UInt16)m_login.Length;
-                byte[] tmp1 = new byte[1024];
-                tmp1 = Encoding.UTF8.GetBytes(m_login);
-                Array.Copy(tmp1, 0, ack.login_buffer, 0, tmp1.Length);
-                ack.password_buffersize = (UInt16)m_password.Length;
-                tmp1 = Encoding.UTF8.GetBytes(m_password);
-                Array.Copy(tmp1, 0, ack.password_buffer, 0, tmp1.Length);
-                ack.participant_id = m_participant_id_number;
-                //ack.participant_certificate_buffer
-                //ack.participant_certificate_buffersize
-                byte[] ack_byte = XRNetworkProtocol.GetBytes<XRNetworkProtocol.ST_HANDSHAKE_CREDENTIALS_ACK>(ack);
-                XRNetworkProtocol.ST_RAW_MESSAGE ret_raw_message_2 = XRNetworkProtocol.BuildRawMessage( (UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.HANDSHAKE_CREDENTIALS_ACK,
-                                                                                                        ack_byte,
-                                                                                                        (UInt32)ack_byte.Length);
-                m_tcpClient.AsyncSend(ret_raw_message_2.ToArray());
-                break;
-            case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.HANDSHAKE_PARTICIPANT_UPDATE:
-                dbgText += "HANDSHAKE_PARTICIPANT_UPDATE";
-                Debug.Log(dbgText);
-                break;
             case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_INFO_REQUEST:
                 dbgText += "PARTICIPANT_INFO_REQUEST";
                 Debug.Log(dbgText);
                 break;
-            case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_JOIN:
-                dbgText = "PARTICIPANT_JOIN\n";
-                XRNetworkProtocol.ST_PARTICIPANT_JOIN join = new XRNetworkProtocol.ST_PARTICIPANT_JOIN();
-                join.message_buffer = new byte[1024];
-                Array.Clear(join.message_buffer, 0, 1024);
-                join = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_PARTICIPANT_JOIN>(payload);
-                dbgText += "participant_id: " + join.participant_id.ToString("X") +
-                            "\nmax_data_rate: " + join.max_data_rate.ToString("X") +
-                            "\nmessage_buffersize: " + join.message_buffersize.ToString() +
-                            "\nmessage_buffer: " + Encoding.UTF8.GetString(join.message_buffer) + "\n";
-                m_participant_id_number = join.participant_id;
-                m_participant_id = join.participant_id.ToString(); // in case it changes with new value
-                m_max_data_rate = join.max_data_rate;
-                NO.SetID(m_participant_id_number);
-                Debug.Log(dbgText);
-
-                XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK jack = new XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK();
-                jack.participant_id = m_participant_id_number;
-                jack.json_buffersize = (UInt32)1024*20;
-                jack.json_buffer = new byte[jack.json_buffersize];
-                //////
-                string JSONjack = Save<XRNetworkPlayer>(m_local_participant_go);
-                byte[] JSONjackArray = Encoding.UTF8.GetBytes(JSONjack);
-                //////
-                Array.Copy(JSONjackArray, jack.json_buffer, JSONjackArray.Length);
-
-                byte[] jack_array = XRNetworkProtocol.GetBytes<XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK>(jack, XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK_SIZE);
-                XRNetworkProtocol.ST_RAW_MESSAGE strm = XRNetworkProtocol.BuildRawMessage((UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_JOIN_ACK,
-                                                                                          jack_array,
-                                                                                          (UInt32)jack_array.Length);
-                //Debug.Log("jack_array length: " + jack_array.Length.ToString()); // correct !!
-                //byte[] ret_tmp_2 = XRNetworkProtocol.GetBytes<XRNetworkProtocol.ST_RAW_MESSAGE>(strm,XRNetworkProtocol.ST_RAW_MESSAGE_SIZE);
-                m_tcpClient.AsyncSend(strm.ToArray());
-                dbgText += "ST_PARTICIPANT_JOIN_ACK\n";
-                dbgText += "participant_id = " + jack.participant_id.ToString("X");
-                //Debug.Log(dbgText);
-                dbgText = "";
-                b_on_room = true;
-                break;
             case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_NEW:
-                dbgText += "PARTICIPANT_NEW\n";
+                dbgText = "<< PARTICIPANT_NEW\n";
                 XRNetworkProtocol.ST_PARTICIPANT_NEW newp = new XRNetworkProtocol.ST_PARTICIPANT_NEW();
                 newp = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_PARTICIPANT_NEW>(payload);
                 UInt64 new_pid = newp.participant_id;
                 string jsonNewp = Encoding.UTF8.GetString(newp.descriptor_buffer, 0, (int)newp.descriptor_buffersize);
-                Debug.Log(dbgText + "\nparticipant_id: " + newp.participant_id.ToString("X") + "\nJSON: " + jsonNewp);
+                dbgText += "\nparticipant_id: " + newp.participant_id.ToString("X") + "\nJSON: " + jsonNewp;
                 GameObject tmp3 = Instantiate(GO.GetComponent<XRNetworkPlayer>().m_prefab,transform);
                 tmp3.name = new_pid.ToString("X");
-                tmp3.AddComponent<XRNetworkPlayer>();
+                XRNetworkPlayer xrnp = tmp3.AddComponent<XRNetworkPlayer>();
+                xrnp.m_id = new_pid;
+                xrnp.m_id_hex = new_pid.ToString("X");
+                Debug.Log(dbgText);
                 dbgText = "";
+                break;
+            case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_JOIN:
+                XRNetworkProtocol.ST_PARTICIPANT_JOIN pj = new XRNetworkProtocol.ST_PARTICIPANT_JOIN();
+                pj = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_PARTICIPANT_JOIN>(payload);
+                NO.m_id = pj.participant_id;
+                NO.m_id_hex = pj.participant_id.ToString("X");
+                m_service_id = XRNetworkClient.xrn_get_service_id();
+                XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK pjack = new XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK();
+                pjack.participant_id = NO.m_id;
+                //string json_string = ;
+                pjack.json_buffer = Encoding.UTF8.GetBytes(Save<XRNetworkObject>(NO.gameObject));
+                pjack.json_buffersize = (UInt32)pjack.json_buffer.Length;
+                byte[] pjack_buffer = XRNetworkProtocol.GetBytes<XRNetworkProtocol.ST_PARTICIPANT_JOIN_ACK>(pjack);
+                //pending_output_messages_queue.Enqueue(pjcak_buffer);
+                XRNetworkClient.xrn_send_message((UInt16)XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_JOIN_ACK,
+                                                    pjack_buffer,
+                                                    (UInt32)pjack_buffer.Length);
                 break;
             case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_UPDATE_ACK:
                 XRNetworkProtocol.ST_PARTICIPANT_UPDATE_ACK uack = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_PARTICIPANT_UPDATE_ACK>(payload);
-                
                 /*dbgText += "<< PARTICIPANT_UPDATE_ACK" +
                            "\nparticipant_id: " + uack.participant_id.ToString("X") +
                            "\ntimestamp: " + uack.origin_timestamp.ToString() +
                            "\nbuffersize: " + uack.buffersize.ToString() +
                            "\nbuffer: " + Encoding.UTF8.GetString(uack.buffer);
-                
                 Debug.Log(dbgText);*/
-                Debug.Log( "<< PARTICIPANT_UPDATE_ACK (" + uack.participant_id.ToString("X") + ")");
+                //Debug.Log( "<< PARTICIPANT_UPDATE_ACK (" + uack.participant_id.ToString("X") + ")");
                 //Debug.Log("<< PARTICIPANT_UPDATE_ACK");
-                //string jsonStringIN = Encoding.UTF8.GetString(uack.buffer);
-                //Debug.Log("PARTICIPANT_UPDATE_ACK " + uack.participant_id.ToString("X") + "\nJSON: " + jsonStringIN);
-
-                //GameObject fGO = GameObject.Find(uack.participant_id.ToString());
-                //if (fGO == null) break;
-                //Restore<XRNetworkObject>(jsonStringIN,fGO);
-                //XRNetworkObject mNO = GameObject.Find(uack.participant_id.ToString()).GetComponent<XRNetworkObject>();
-                //mNO.UpdateFromService();
+                string jsonStringIN = Encoding.UTF8.GetString(uack.buffer);
+                //Debug.Log("<< PARTICIPANT_UPDATE_ACK " + uack.participant_id.ToString("X") + "\nJSON: " + jsonStringIN);
+                GameObject fGO = GameObject.Find(uack.participant_id.ToString("X"));
+                if (fGO == null) break;
+                XRNetworkObject mNO = Restore<XRNetworkObject>(jsonStringIN,fGO);
+                //XRNetworkObject mNO = GameObject.Find(uack.participant_id.ToString("X")).GetComponent<XRNetworkObject>();
+                mNO.UpdateFromService();
                 dbgText = "";
                 break;
             case XRNetworkProtocol.EN_RAW_MESSAGE_HEAD.PARTICIPANT_LEAVE:
                 XRNetworkProtocol.ST_PARTICIPANT_LEAVE p_leave = XRNetworkProtocol.ByteArrayToStructure<XRNetworkProtocol.ST_PARTICIPANT_LEAVE>(payload);
-                Debug.Log("PARTICIPANT_LEAVE\nparticipant_id: " + p_leave.participant_id.ToString("X") + "\n");
+                Debug.Log("<< PARTICIPANT_LEAVE\nparticipant_id: " + p_leave.participant_id.ToString("X") + "\n");
+                
                 if (GameObject.Find(p_leave.participant_id.ToString("X")) != null)
                 {
                     Destroy(GameObject.Find(p_leave.participant_id.ToString("X")));
@@ -495,27 +377,10 @@ public class XRNetworkManager : MonoBehaviour
         return _json;
     }
 
-    public void Restore<T>(string _json, GameObject obj)
+    public T Restore<T>(string _json, GameObject obj)
     {
         JsonUtility.FromJsonOverwrite(_json, obj.GetComponent<T>());
+        return obj.GetComponent<T>();
     }
-
-    /*
-     void Update()
-    {
-        if (m_tcpClient==null) return;
-        if (!m_tcpClient.IsConnected)
-        {
-            return;
-        }
-        
-        long timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-        if ( (m_dt_ms>0) && (timestamp - m_last_timestamp >= m_dt_ms ) && can_update_to_the_server )
-        {
-            ParticipantUpdateFunction();
-            m_last_timestamp = timestamp;
-        }
-    }
-    */
 
 }
