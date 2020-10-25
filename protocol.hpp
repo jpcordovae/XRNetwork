@@ -10,31 +10,75 @@ struct ST_MESSAGE {
 }__attribute__((__packed__));
 
 enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
-                                            HANDSHAKE_HELLO,
-                                            HANDSHAKE_HELLO_ACK,
-                                            HANDSHAKE_CREDENTIALS,
-                                            HANDSHAKE_CREDENTIALS_ACK,
-                                            HANDSHAKE_STATISTICS_REQUEST,
-                                            HANDSHAKE_STATISTICS_REQUEST_ACK,
-                                            HANDSHAKE_PARTICIPANT_UPDATE,
-                                            HANDSHAKE_PARTICIPANT_UPDATE_ACK,
-                                            PARTICIPANT_JOIN, // inform to participant about join or to the service room
-                                            PARTICIPANT_JOIN_ACK, //
-                                            MESSAGE,
-                                            MESSAGE_ACK,
-                                            PARTICIPANT_NEW,
-                                            PARTICIPANT_NEW_ACK,
-                                            PARTICIPANT_LEAVE,
-                                            PARTICIPANT_LEAVE_ACK,
-                                            PARTICIPANT_INFO_REQUEST,
-                                            PARTICIPANT_INFO_REQUEST_ACK,
-                                            PARTICIPANT_UPDATE,
-                                            PARTICIPANT_UPDATE_ACK,
-                                            PARTICIPANT_EVENT,
-                                            PARTICIPANT_EVENT_ACK,
-                                            AVAR_MESSAGE,
-                                            CHAT_MESSAGE,
-                                            CONTROL };
+  HANDSHAKE_HELLO,
+  HANDSHAKE_HELLO_ACK,
+  HANDSHAKE_CREDENTIALS,
+  HANDSHAKE_CREDENTIALS_ACK,
+  HANDSHAKE_STATISTICS_REQUEST,
+  HANDSHAKE_STATISTICS_REQUEST_ACK,
+  HANDSHAKE_PARTICIPANT_UPDATE,
+  HANDSHAKE_PARTICIPANT_UPDATE_ACK,
+  PARTICIPANT_JOIN, // inform to participant about join or to the service room
+  PARTICIPANT_JOIN_ACK, //
+  MESSAGE,
+  MESSAGE_ACK,
+  PARTICIPANT_NEW,
+  PARTICIPANT_NEW_ACK,
+  PARTICIPANT_LEAVE,
+  PARTICIPANT_LEAVE_ACK,
+  PARTICIPANT_INFO_REQUEST,
+  PARTICIPANT_INFO_REQUEST_ACK,
+  PARTICIPANT_UPDATE,
+  PARTICIPANT_UPDATE_ACK,
+  PARTICIPANT_EVENT,
+  PARTICIPANT_EVENT_ACK,
+  AVAR_MESSAGE,
+  CHAT_MESSAGE,
+  CONTROL,
+  OBJECT,
+  OBJECT_ACK };
+
+enum class EN_OBJECT_MESSAGE_HEAD : uint16_t {
+  NONE,
+  OBJECT_NEW,
+  OBJECT_DELETE,
+  OBJECT_UPDATE
+};
+
+// ST_OBJECT_ACK
+
+constexpr size_t ST_OBJECT_ACK_PAYLOAD_SIZE = 20*1024;
+
+struct ST_OBJECT_ACK
+{
+  uint16_t object_head;
+  uint64_t participant_id; // owner of the object, to be emplaced as parent transform
+  uint64_t object_id;
+  uint32_t json_buffersize;
+  std::byte json_buffer[ST_OBJECT_ACK_PAYLOAD_SIZE];
+  ST_OBJECT_ACK() : object_head((uint16_t)EN_OBJECT_MESSAGE_HEAD::NONE),
+		    json_buffersize(ST_OBJECT_ACK_PAYLOAD_SIZE)
+  {
+    memset(json_buffer,0x00,ST_OBJECT_ACK_PAYLOAD_SIZE);
+  }
+}__attribute__((__packed__));
+
+// ST_OBJECT
+
+constexpr size_t ST_OBJECT_PAYLOAD_SIZE = 20*1024;
+
+struct ST_OBJECT
+{
+  uint16_t object_head;
+  uint64_t participant_id; // owner of the object
+  uint64_t object_id;
+  uint32_t json_buffersize;
+  std::byte json_buffer[ST_OBJECT_PAYLOAD_SIZE];
+  ST_OBJECT() : json_buffersize(ST_OBJECT_PAYLOAD_SIZE)
+  {
+    memset(json_buffer,0x00,ST_OBJECT_PAYLOAD_SIZE);
+  }
+}__attribute__((__packed__));
 
 // ST_PARTICIPANT_DELETE
 struct ST_PARTICIPANT_LEAVE

@@ -107,12 +107,8 @@ protected:
                             [this, self](boost::system::error_code ec, std::size_t bytes_transferred) {
 			      
                               if (!ec) {
-                                //std::cout << std::endl << "receiving " << std::to_string(bytes_transferred) << " bytes" << std::endl;
                                 XRMessage_ptr message_ptr(new XRMessage(read_buffer_.data(),bytes_transferred,false));
                                 xr_message_header *header = message_ptr->get_header();
-                                //print_buffer(read_buffer_.data(),60);
-                                //std::cout << *header << std::endl;
-                                //std::cout << std::endl;
                                 switch((uint16_t)header->head){
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_JOIN_ACK):
 				  {
@@ -128,23 +124,26 @@ protected:
                                   break;
                                 case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_UPDATE_ACK):
                                   {
-                                    //std::cout << std::endl << "<< PARTICIPANT_UPDATE_ACK" << std::endl;
-                                    //ST_PARTICIPANT_UPDATE_ACK *upd = static_cast<ST_PARTICIPANT_UPDATE_ACK*>((void*)message_ptr->payload());
-				    //std::cout << std::endl << *upd << std::endl;
-				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
+                                    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
                                   }
                                   break;
 				case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::PARTICIPANT_LEAVE_ACK):
 				  {
-				    //ST_PARTICIPANT_LEAVE_ACK *leave = static_cast<ST_PARTICIPANT_LEAVE_ACK*>((void*)message_ptr->payload());
-				    //m_room.disconnect_participant(m_id);
 				    m_room.leave(shared_from_this());
 				  }
 				  break;
+				case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::OBJECT):
+				  {
+				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
+				  }
+				  break;
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::OBJECT_ACK):
+				  {
+				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
+				  }
+				  break;
                                 default:
-                                  //disconnect();
-				  //m_room.disconnect_participant(m_id);
-				  m_room.leave(shared_from_this());
+                                  m_room.leave(shared_from_this());
 				  break;
                                 }
                                 do_read_byte();
