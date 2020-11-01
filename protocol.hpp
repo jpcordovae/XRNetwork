@@ -35,33 +35,15 @@ enum class EN_RAW_MESSAGE_HEAD : uint16_t { NONE,
   AVAR_MESSAGE,
   CHAT_MESSAGE,
   CONTROL,
-  OBJECT,
-  OBJECT_ACK };
+  OBJECT_EVENT,
+  OBJECT_EVENT_ACK };
 
-enum class EN_OBJECT_MESSAGE_HEAD : uint16_t {
+enum class EN_OBJECT_EVENTS : uint16_t {
   NONE,
   OBJECT_NEW,
   OBJECT_DELETE,
   OBJECT_UPDATE
 };
-
-// ST_OBJECT_ACK
-
-constexpr size_t ST_OBJECT_ACK_PAYLOAD_SIZE = 20*1024;
-
-struct ST_OBJECT_ACK
-{
-  uint16_t object_head;
-  uint64_t participant_id; // owner of the object, to be emplaced as parent transform
-  uint64_t object_id;
-  uint32_t json_buffersize;
-  std::byte json_buffer[ST_OBJECT_ACK_PAYLOAD_SIZE];
-  ST_OBJECT_ACK() : object_head((uint16_t)EN_OBJECT_MESSAGE_HEAD::NONE),
-		    json_buffersize(ST_OBJECT_ACK_PAYLOAD_SIZE)
-  {
-    memset(json_buffer,0x00,ST_OBJECT_ACK_PAYLOAD_SIZE);
-  }
-}__attribute__((__packed__));
 
 // ST_OBJECT
 
@@ -69,9 +51,8 @@ constexpr size_t ST_OBJECT_PAYLOAD_SIZE = 20*1024;
 
 struct ST_OBJECT
 {
-  uint16_t object_head;
-  uint64_t participant_id; // owner of the object
   uint64_t object_id;
+  uint64_t participant_id; // owner of the object
   uint32_t json_buffersize;
   std::byte json_buffer[ST_OBJECT_PAYLOAD_SIZE];
   ST_OBJECT() : json_buffersize(ST_OBJECT_PAYLOAD_SIZE)
@@ -79,6 +60,23 @@ struct ST_OBJECT
     memset(json_buffer,0x00,ST_OBJECT_PAYLOAD_SIZE);
   }
 }__attribute__((__packed__));
+
+// ST_OBJECT_ACK
+
+constexpr size_t ST_OBJECT_ACK_PAYLOAD_SIZE = 20*1024;
+typedef ST_OBJECT ST_OBJECT_ACK;
+
+// ST_OBJECT_EVENT
+
+struct ST_OBJECT_EVENT
+{
+  uint16_t object_event;
+  ST_OBJECT object;
+}__attribute__((__packed__));
+
+// ST_OBJECT_EVENT_ACK
+
+typedef ST_OBJECT_EVENT ST_OBJECT_EVENT_ACK;
 
 // ST_PARTICIPANT_DELETE
 struct ST_PARTICIPANT_LEAVE

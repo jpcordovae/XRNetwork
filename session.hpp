@@ -115,8 +115,11 @@ protected:
 				    ST_PARTICIPANT_JOIN_ACK *pjack = static_cast<ST_PARTICIPANT_JOIN_ACK*>((void*)message_ptr->payload());
 				    std::cout << std::endl << "<< PARTICIPANT_JOIN_ACK" << std::endl << *pjack << std::endl;
 				    m_descriptor.clear();
-				    // save descriptor of the participant, is client platform dependent, for the server is a bunch of bytes
-				    std::copy(pjack->json_buffer,pjack->json_buffer+pjack->json_buffersize,std::back_inserter(m_descriptor));
+				    // Save descriptor of the participant, is client platform dependent,
+				    // for the server is a bunch of bytes
+				    std::copy(pjack->json_buffer,
+					      pjack->json_buffer+pjack->json_buffersize,
+					      std::back_inserter(m_descriptor));
 				    m_room.init_new_participant(pjack->participant_id);
 				  }
 				  break;
@@ -132,13 +135,33 @@ protected:
 				    m_room.leave(shared_from_this());
 				  }
 				  break;
-				case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::OBJECT):
+                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::OBJECT_EVENT_ACK):
 				  {
-				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
-				  }
-				  break;
-                                case static_cast<unsigned int>(EN_RAW_MESSAGE_HEAD::OBJECT_ACK):
-				  {
+				    ST_OBJECT_EVENT_ACK *oeack = static_cast<ST_OBJECT_EVENT_ACK*>((void*)message_ptr->payload());
+				    switch((uint16_t)oeack->object_event){
+				    case static_cast<unsigned int>(EN_OBJECT_EVENTS::OBJECT_NEW):
+				      {
+					std::cout << "<< NEW OBJECT " << std::endl;
+					m_room.add_new_object(std::make_shared<xr_object>((ST_OBJECT*)message_ptr->payload()));
+					m_room.deliver_to_all_except_to_one(message_ptr,oeack->object.participant_id);
+				      }
+				      break;
+				    case static_cast<unsigned int>(EN_OBJECT_EVENTS::OBJECT_DELETE):
+				      {
+					std::cout << "<< OBJECT DELETE " << std::endl;
+					m_room.delete_object(std::make_shared<xr_object>((ST_OBJECT*)message_ptr->payload()));
+					m_room.deliver_to_all_except_to_one(message_ptr,oeack->object.participant_id);
+				      }
+				      break;
+				    case static_cast<unsigned int>(EN_OBJECT_EVENTS::OBJECT_UPDATE):
+				      {
+					std::cout << "<< OBJECT UPDATE " << std::endl;
+					m_room.update_object(std::make_shared<xr_object>((ST_OBJECT*)message_ptr->payload()));
+					m_room.deliver_to_all_except_to_one(message_ptr,oeack->object.participant_id);
+				      }
+				    default:
+				      break;
+				    }
 				    m_room.deliver_to_all_except_to_one(message_ptr,m_id);
 				  }
 				  break;
@@ -239,7 +262,7 @@ private:
 						     m_deque_write_buffer_mutex.lock();
 						     bool queue_is_empty = deque_write_buffer_.empty();
 						     m_deque_write_buffer_mutex.unlock();
-						     //deque_write_buffer_.pop_front();
+						     //deque_write_buffer_.pop_front();// this line was commcomented, watch out !!
 						     if (!queue_is_empty) {
 						       do_write_byte();
 						     }
@@ -249,25 +272,7 @@ private:
 						     //m_room.leave(shared_from_this());
 						     do_close();
 						   }
-						 });
-    
-    /*
-    boost::asio::async_write(*m_socket_ptr,
-                             boost::asio::buffer(deque_write_buffer_.front()->data(),
-                                                 deque_write_buffer_.front()->size()),
-			                         [this, self](boost::system::error_code ec, std::size_t bytes_writen) {
-						   if (!ec) {
-						     std::cout << std::to_string(bytes_writen) << " bytes written" << std::endl;
-						     deque_write_buffer_.pop_front();
-						     if (!deque_write_buffer_.empty()) {
-						       do_write_byte();
-						     }
-						   }
-						   else {
-						     std::cerr << "nr_session:do_write error" << std::endl;
-						     m_room.leave(shared_from_this());
-						   }
-						   });*/
+						 });    
   }
 
 protected:

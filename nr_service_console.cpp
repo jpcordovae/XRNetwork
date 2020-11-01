@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 	break;
       case 'n':
       case 'N':
-	cout << "starting service\r\n";
+	std::cout << "starting service\r\n";
 	if (xrnls) {
 	  xrnls->start();
 	  if(!b_instantiated) xrnls->register_callback_on_running(OnServiceStarted);
@@ -110,14 +110,14 @@ int main(int argc, char* argv[])
 	break;
       case 's':
       case 'S':
-	cout << "stopping service\r\n";
+	std::cout << "stopping service\r\n";
 	if (xrnls) {
 	  xrnls->stop();
 	}
 	break;
       case 'd':
       case 'D':
-	cout << "disconnect all participants\r\n";
+	std::cout << "disconnect all participants\r\n";
 	if (xrnls)
 	  xrnls->disconnect_all_participants();
 	break;

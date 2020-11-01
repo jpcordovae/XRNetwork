@@ -4,6 +4,7 @@
 #include "participant.hpp"
 #include "protocol.hpp"
 #include "XRMessage.hpp"
+#include "xr_object.hpp"
 
 class network_room
 {
@@ -150,6 +151,56 @@ public:
     }
   }
 
+  void add_new_object(xr_object_ptr object_ptr)
+  {
+    if(map_objects_.find(object_ptr->get_object_id()) == map_objects_.end()) return; //TODO: throw exception here, or log error, whatever....
+    map_objects_[object_ptr->get_object_id()] = object_ptr;
+    //TODO: broadcast new object
+  }
+
+  void delete_object(xr_object_ptr object_ptr)
+  {
+    if(map_objects_.find(object_ptr->get_object_id()) == map_objects_.end()) return; //TODO: throw exception here, or log error, whatever....
+    map_objects_.erase(object_ptr->get_object_id());
+    //TODO: broadcast object modification
+  }
+
+  void update_object(xr_object_ptr object_ptr)
+  {
+    auto it = map_objects_.find(object_ptr->get_object_id());
+    if(it == map_objects_.end()) return;
+    //map_objects_[object_ptr->get_object_id()] = object_ptr;
+  }
+
+  void send_all_objects_to_participant(uint64_t participant_id)
+  {
+    nr_participant_ptr p = get_participant_ptr(participant_id);
+    
+    if(p==nullptr) {
+      //TODO: log this and throw exception
+      return;
+    }
+    boost::asio::post(m_io_context,
+		      [&,this]{
+			for(auto &[object_id,object] : map_objects_){
+			  uint16_t header = object->get_owner_id()==0 ? (uint16_t)EN_RAW_MESSAGE_HEAD::OBJECT_EVENT : (uint16_t)EN_RAW_MESSAGE_HEAD::OBJECT_EVENT_ACK;
+			  XRMessage_ptr msg = std::make_shared<XRMessage>(header,object->data(),object->size());
+			  p->deliver_byte(msg->data(),msg->size());
+			}});
+  }
+
+  void send_object_event_to_all_except_to_one(uint16_t event, xr_object_ptr object_ptr, uint64_t pie /*participant_id_exception*/)
+  {
+    XRMessage_ptr msg_ptr = std::make_shared<XRMessage>(event,object_ptr->data(),object_ptr->size());
+    deliver_to_all_except_to_one(msg_ptr,pie);
+  }
+
+  void send_object_event_to_all(uint16_t event, xr_object_ptr object_ptr, uint64_t pie /*participant_id_exception*/)
+  {
+    XRMessage_ptr msg_ptr = std::make_shared<XRMessage>(event,object_ptr->data(),object_ptr->size());
+    deliver_to_all(msg_ptr->data(),msg_ptr->size());
+  }
+  
   void deliver_to_all(std::byte *buffer, size_t buffersize)
   {
     for (auto participant : participants_){
@@ -373,6 +424,7 @@ private:
     return *it;
   }
 
+  std::map<uint64_t,xr_object_ptr> map_objects_;
   std::mt19937_64 rng;
   std::mutex participants_mutex;
   std::set<nr_participant_ptr,std::less<>> participants_;
